@@ -91,7 +91,7 @@
             <artifactId>spring-ai-starter-model-embedding-openai</artifactId>
         </dependency>
 
-        <!-- JWT (jjwt) -->
+        <!-- JWT (jjwt — 不含 jjwt-jackson，因为 Spring Boot 4 使用 Jackson 3) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -100,12 +100,6 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.12.6</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
