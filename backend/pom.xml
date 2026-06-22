@@ -60,35 +60,48 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- MinIO -->
+        <!-- MinIO 对象存储 -->
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>9.0.2</version>
         </dependency>
 
-        <!-- Spring AI - Core -->
+        <!-- OkHttp (MinIO 9.x 内部依赖，需显式引入) -->
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-core</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
         </dependency>
 
-        <!-- Spring AI - OpenAI (作为默认 LLM 提供商，可替换) -->
+        <!-- Spring AI - Commons (基础领域模型：Message, Prompt, Media 等) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai-sdk</artifactId>
+            <artifactId>spring-ai-commons</artifactId>
         </dependency>
 
-        <!-- Spring AI - Qdrant 向量存储 -->
+        <!-- Spring AI - Model (核心接口：ChatModel, EmbeddingModel 等) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+        </dependency>
+
+        <!-- Spring AI - Chat Client (ChatClient 流式 API + Advisor 机制) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+        </dependency>
+
+        <!-- Spring AI - OpenAI Starter (Chat + Embedding + 自动配置) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
+        <!-- Spring AI - Qdrant 向量存储 Starter -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-vector-store-qdrant</artifactId>
-        </dependency>
-
-        <!-- Spring AI - Embedding -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-embedding-openai</artifactId>
         </dependency>
 
         <!-- JWT (jjwt — 不含 jjwt-jackson，因为 Spring Boot 4 使用 Jackson 3) -->

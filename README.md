@@ -60,14 +60,20 @@ npm run dev
 ### 4. 配置环境变量
 
 ```bash
-# LLM API Key（必填）
-export OPENAI_API_KEY=sk-xxx
+# 1. 从示例文件创建 .env
+cd backend
+cp .env.example .env
 
-# Qdrant Cloud 连接（必填）
-export QDRANT_HOST=your-cluster-url
-export QDRANT_PORT=6334
-export QDRANT_API_KEY=your-api-key
+# 2. 编辑 .env，填入实际值
+#    - OPENAI_API_KEY:  必填，OpenAI API 密钥
+#    - QDRANT_HOST:     必填，Qdrant Cloud 集群地址
+#    - QDRANT_API_KEY:  必填，Qdrant Cloud API 密钥
+#    - DB_PASSWORD:     数据库密码（默认 123456）
+#    - MINIO_SECRET_KEY: MinIO 密钥（默认 minioadmin123）
+#    - JWT_SECRET:      JWT 签名密钥（生产环境务必修改）
 ```
+
+> `.env` 已被 `.gitignore` 忽略，不会提交到仓库。`.env.example` 作为模板提交，团队成员可据此创建自己的 `.env`。
 
 ## 项目结构
 

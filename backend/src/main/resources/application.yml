@@ -12,9 +12,9 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:mysql://localhost:3306/ketangpai?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root123
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:ketangpai}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -23,37 +23,38 @@ spring:
     show-sql: true
     open-in-view: false
 
-  # MinIO 配置
+  # MinIO 对象存储
   minio:
-    endpoint: http://localhost:9000
-    access-key: minioadmin
-    secret-key: minioadmin123
-    bucket: ketangpai
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+    bucket: ${MINIO_BUCKET:ketangpai}
 
-  # Spring AI 配置
+  # Spring AI 2.0 配置 — Chat / Embedding 分离
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY:your-api-key}
       chat:
-        options:
-          model: gpt-5-mini
-          temperature: 0.7
+        api-key: ${OPENAI_CHAT_API_KEY:}
+        base-url: ${OPENAI_CHAT_BASE_URL:}
+        model: ${OPENAI_CHAT_MODEL:deepseek-v4-flash}
       embedding:
-        options:
-          model: text-embedding-3-small
+        api-key: ${OPENAI_EMBEDDING_API_KEY:}
+        base-url: ${OPENAI_EMBEDDING_BASE_URL:}
+        model: ${OPENAI_EMBEDDING_MODEL:text-embedding-v4}
+
     vectorstore:
       qdrant:
         host: ${QDRANT_HOST:localhost}
         port: ${QDRANT_PORT:6334}
         api-key: ${QDRANT_API_KEY:}
-        collection-name: ketangpai-kb
+        collection-name: ${QDRANT_COLLECTION:ketangpai-kb}
         initialize-schema: true
 
 # JWT 配置
 jwt:
   secret: ${JWT_SECRET:ketangpai-jwt-secret-key-2026-must-be-at-least-256-bits-long}
-  expiration: 86400000  # 24 小时 (毫秒)
+  expiration: ${JWT_EXPIRATION:86400000}  # 24 小时 (毫秒)
 
 # 服务端口
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
