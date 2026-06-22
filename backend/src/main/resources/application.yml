@@ -30,9 +30,15 @@ spring:
     secret-key: ${MINIO_SECRET_KEY:minioadmin123}
     bucket: ${MINIO_BUCKET:ketangpai}
 
-  # Spring AI 2.0 配置 — Chat / Embedding 分离
+  # Spring AI 2.0 配置 — Chat / Embedding 分离，其余禁用
   ai:
+    model:
+      image: none
+      audio: none
+      moderation: none
+
     openai:
+      api-key: ${OPENAI_CHAT_API_KEY:}   # 公共 fallback（未使用的模块依赖此值）
       chat:
         api-key: ${OPENAI_CHAT_API_KEY:}
         base-url: ${OPENAI_CHAT_BASE_URL:}
@@ -46,7 +52,6 @@ spring:
       qdrant:
         host: ${QDRANT_HOST:localhost}
         port: ${QDRANT_PORT:6334}
-        api-key: ${QDRANT_API_KEY:}
         collection-name: ${QDRANT_COLLECTION:ketangpai-kb}
         initialize-schema: true
 
