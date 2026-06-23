@@ -1,4 +1,4 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
 import com.ketangpai.model.enums.DraftType;
 import jakarta.persistence.Column;

@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.Assignment;
+import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.enums.AssignmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

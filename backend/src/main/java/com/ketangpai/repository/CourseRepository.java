@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.Course;
+import com.ketangpai.model.entity.Course;
 import com.ketangpai.model.enums.CourseStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

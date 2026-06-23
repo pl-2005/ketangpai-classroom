@@ -1,4 +1,4 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,38 +12,38 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 提交文件表
+ * 相似度报告表
+ * <p>
+ * 每次教师触发相似度分析，生成一份报告 + 多对相似对。
  */
 @Entity
-@Table(name = "submission_file")
+@Table(name = "similarity_report")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SubmissionFile {
+public class SimilarityReport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long submissionId;
-
-    @Column(nullable = false, length = 255)
-    private String fileName;
-
-    @Column(nullable = false, length = 500)
-    private String fileUrl;
+    private Long assignmentId;
 
     @Column(nullable = false)
+    private Integer totalSubmissions;
+
+    @Column(nullable = false, precision = 3, scale = 2)
     @Builder.Default
-    private Long fileSize = 0L;
+    private BigDecimal threshold = new BigDecimal("0.80");
 
     @Column
     @Builder.Default
-    private LocalDateTime createTime = LocalDateTime.now();
+    private LocalDateTime generatedAt = LocalDateTime.now();
 }

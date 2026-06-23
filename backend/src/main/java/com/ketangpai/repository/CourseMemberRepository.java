@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.CourseMember;
+import com.ketangpai.model.entity.CourseMember;
 import com.ketangpai.model.enums.CourseMemberRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.LessonDraft;
+import com.ketangpai.model.entity.LessonDraft;
 import com.ketangpai.model.enums.DraftType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

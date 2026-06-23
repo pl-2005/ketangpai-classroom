@@ -1,4 +1,4 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
 import com.ketangpai.model.enums.SubmissionStatus;
 import jakarta.persistence.Column;

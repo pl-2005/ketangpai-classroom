@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.Topic;
+import com.ketangpai.model.entity.Topic;
 import com.ketangpai.model.enums.TopicStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

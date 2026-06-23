@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.Material;
+import com.ketangpai.model.entity.Material;
 import com.ketangpai.model.enums.MaterialType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

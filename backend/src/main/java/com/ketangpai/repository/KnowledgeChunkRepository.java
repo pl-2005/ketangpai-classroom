@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.KnowledgeChunk;
+import com.ketangpai.model.entity.KnowledgeChunk;
 import com.ketangpai.model.enums.SourceType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

@@ -1,4 +1,4 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

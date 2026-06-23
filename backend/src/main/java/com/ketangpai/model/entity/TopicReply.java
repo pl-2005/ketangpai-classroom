@@ -1,10 +1,7 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
-import com.ketangpai.model.enums.NotificationType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,41 +15,41 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 通知表
+ * 话题回复表
+ * <p>
+ * 不继承 BaseEntity：无 updateTime 字段。
+ * path 为物化路径（如 /1/3/5），用于高效楼中楼排序。
  */
 @Entity
-@Table(name = "notification")
+@Table(name = "topic_reply")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Notification {
+public class TopicReply {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long topicId;
 
-    private Long courseId;
+    @Column(nullable = false)
+    private Long authorId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "ENUM('ASSIGNMENT_PUBLISHED','ASSIGNMENT_URGED','ASSIGNMENT_GRADED','ASSIGNMENT_RETURNED','TOPIC_REPLY','COURSE_JOINED','COURSE_ANNOUNCEMENT')")
-    private NotificationType type;
-
-    @Column(nullable = false, length = 200)
-    private String title;
-
-    @Column(columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-
-    private Long relatedId;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isRead = false;
+    private Boolean isAnonymous = false;
+
+    private Long parentId;
+
+    @Column(length = 500)
+    private String path;
 
     @Column(nullable = false)
     @Builder.Default

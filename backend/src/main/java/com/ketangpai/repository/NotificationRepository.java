@@ -1,6 +1,6 @@
 package com.ketangpai.repository;
 
-import com.ketangpai.entity.Notification;
+import com.ketangpai.model.entity.Notification;
 import com.ketangpai.model.enums.NotificationType;
 import java.util.List;
 

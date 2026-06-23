@@ -1,6 +1,6 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
-import com.ketangpai.model.enums.TopicStatus;
+import com.ketangpai.model.enums.AssignmentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,43 +13,44 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.LocalDateTime;
+
 /**
- * 话题表
+ * 作业表
  */
 @Entity
-@Table(name = "topic")
+@Table(name = "assignment")
 @SQLRestriction("deleted = 0")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Topic extends BaseEntity {
+public class Assignment extends BaseEntity {
 
     @Column(nullable = false)
     private Long courseId;
 
-    @Column(nullable = false)
-    private Long authorId;
-
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "ENUM('NORMAL','PINNED','LOCKED')")
+    @Column(nullable = false, columnDefinition = "ENUM('DRAFT','PUBLISHED','CLOSED')")
     @Builder.Default
-    private TopicStatus status = TopicStatus.NORMAL;
+    private AssignmentStatus status = AssignmentStatus.DRAFT;
+
+    private LocalDateTime deadline;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isAnonymous = false;
+    private Integer maxScore = 100;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean discussionEnabled = true;
+    private Boolean allowResubmit = true;
 
     @Column(nullable = false)
     @Builder.Default

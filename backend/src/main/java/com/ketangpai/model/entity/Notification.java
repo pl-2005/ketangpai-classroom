@@ -1,6 +1,6 @@
-package com.ketangpai.entity;
+package com.ketangpai.model.entity;
 
-import com.ketangpai.model.enums.SourceType;
+import com.ketangpai.model.enums.NotificationType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,44 +18,45 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 知识库文档块表（RAG 架构）
- * <p>
- * 存储课程资料切分后的文本块，通过 qdrantPointId 关联 Qdrant 向量数据库。
+ * 通知表
  */
 @Entity
-@Table(name = "knowledge_chunk")
+@Table(name = "notification")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class KnowledgeChunk {
+public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
+    private Long userId;
+
     private Long courseId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "ENUM('MATERIAL','ASSIGNMENT','TOPIC')")
-    private SourceType sourceType;
+    @Column(nullable = false, columnDefinition = "ENUM('ASSIGNMENT_PUBLISHED','ASSIGNMENT_URGED','ASSIGNMENT_GRADED','ASSIGNMENT_RETURNED','TOPIC_REPLY','COURSE_JOINED','COURSE_ANNOUNCEMENT')")
+    private NotificationType type;
 
-    @Column(nullable = false)
-    private Long sourceId;
+    @Column(nullable = false, length = 200)
+    private String title;
 
-    @Column(length = 200)
-    private String sourceName;
-
-    @Column(nullable = false)
-    private Integer chunkIndex;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(length = 100)
-    private String qdrantPointId;
+    private Long relatedId;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isRead = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean deleted = false;
 
     @Column
     @Builder.Default
