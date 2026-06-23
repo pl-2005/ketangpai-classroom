@@ -70,10 +70,12 @@ cp .env.example .env
 #    - QDRANT_API_KEY:  必填，Qdrant Cloud API 密钥
 #    - DB_PASSWORD:     数据库密码（默认 123456）
 #    - MINIO_SECRET_KEY: MinIO 密钥（默认 minioadmin123）
-#    - JWT_SECRET:      JWT 签名密钥（生产环境务必修改）
+#    - JWT_SECRET:      必填，JWT 签名密钥（至少 32 字节）
+#    - BCRYPT_STRENGTH: BCrypt 工作因子（默认 12）
+#    - REDIS_HOST:      Redis 地址，用于登录失败限流（默认 127.0.0.1）
 ```
 
-> `.env` 已被 `.gitignore` 忽略，不会提交到仓库。`.env.example` 作为模板提交，团队成员可据此创建自己的 `.env`。
+> `.env` 已被 `.gitignore` 忽略，不会提交到仓库。后端启动时会自动加载 `backend/.env`；`.env.example` 仅作为模板，必须替换其中的 JWT 示例密钥。
 
 ## 项目结构
 

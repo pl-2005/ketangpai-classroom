@@ -1,55 +1,75 @@
 package com.ketangpai.service;
 
+import com.ketangpai.dto.course.CourseCardResponse;
+import com.ketangpai.dto.course.CourseDetailResponse;
+import com.ketangpai.dto.course.CourseMemberResponse;
+import com.ketangpai.dto.course.CreateCourseRequest;
+import com.ketangpai.dto.course.UpdateCourseRequest;
+import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.entity.Course;
 import com.ketangpai.model.entity.CourseMember;
-import com.ketangpai.exception.BusinessException;
+import com.ketangpai.model.entity.User;
+import com.ketangpai.model.enums.CourseAction;
 import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.CourseStatus;
+import com.ketangpai.model.enums.UserRole;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.CourseRepository;
+import com.ketangpai.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.security.SecureRandom;
+import java.util.Locale;
 
 /**
- * 课程管理服务
+ * 课程管理服务。
  */
 @Service
 public class CourseService extends BaseService {
 
-    private final CourseRepository courseRepository;
+    private static final String COURSE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final int COURSE_CODE_LENGTH = 6;
+    private static final int COURSE_CODE_MAX_ATTEMPTS = 20;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    public CourseService(CourseMemberRepository courseMemberRepository, CourseRepository courseRepository) {
+    private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
+
+    public CourseService(CourseMemberRepository courseMemberRepository,
+                         CourseRepository courseRepository,
+                         UserRepository userRepository) {
         super(courseMemberRepository);
         this.courseRepository = courseRepository;
+        this.userRepository = userRepository;
     }
 
-    /** 获取用户的有效课程列表（未归档） */
-    public List<CourseMember> listMyCourses(Long userId, boolean archived) {
-        List<CourseMember> members = courseMemberRepository.findByUserId(userId);
-        if (archived) {
-            return members.stream().filter(CourseMember::getIsArchived).toList();
-        }
-        return members.stream().filter(cm -> !cm.getIsArchived()).toList();
+    /** 获取当前用户的课程卡片，区分正常视图和归档视图。 */
+    @Transactional(readOnly = true)
+    public Page<CourseCardResponse> listMyCourses(Long userId, boolean archived, Pageable pageable) {
+        return courseMemberRepository.findCourseCards(userId, archived, pageable);
     }
 
+    /** 只有全局角色为教师的用户可以创建课程。 */
     @Transactional
-    public Course createCourse(Long userId, String name, String description, String coverUrl) {
-        String courseCode = generateCourseCode();
+    public CourseDetailResponse createCourse(Long userId, CreateCourseRequest request) {
+        User creator = getEnabledUserOrThrow(userId);
+        if (creator.getRole() != UserRole.TEACHER) {
+            throw new BusinessException(403, "仅教师可以创建课程");
+        }
+
         Course course = Course.builder()
-                .name(name)
-                .description(description)
-                .courseCode(courseCode)
-                .coverUrl(coverUrl)
+                .name(normalizeRequired(request.name(), "课程名称不能为空"))
+                .description(normalizeNullable(request.description()))
+                .courseCode(generateUniqueCourseCode())
+                .coverUrl(normalizeNullable(request.coverUrl()))
                 .status(CourseStatus.ACTIVE)
                 .creatorId(userId)
                 .build();
         course = courseRepository.save(course);
 
-        // 创建者自动成为 CREATOR 角色成员
         CourseMember member = CourseMember.builder()
                 .courseId(course.getId())
                 .userId(userId)
@@ -57,140 +77,223 @@ public class CourseService extends BaseService {
                 .build();
         courseMemberRepository.save(member);
 
-        return course;
+        return toDetail(course, CourseMemberRole.CREATOR, 1L);
     }
 
+    /**
+     * 通过课程号加入课程。所有用户先以学生权限加入；教师管理权限由创建者明确授予。
+     */
     @Transactional
-    public CourseMember joinByCode(Long userId, String courseCode) {
+    public CourseMember joinByCode(Long userId, String rawCourseCode) {
+        String courseCode = normalizeCourseCode(rawCourseCode);
         Course course = courseRepository.findByCourseCode(courseCode)
                 .orElseThrow(() -> new BusinessException(404, "课程不存在或课程号无效"));
         if (course.getStatus() == CourseStatus.ARCHIVED) {
             throw new BusinessException(400, "课程已归档，无法加入");
         }
 
-        // 检查是否已有成员记录（含已退课）
         return courseMemberRepository.findByCourseIdAndUserId(course.getId(), userId)
-                .map(cm -> {
-                    if (!cm.getDeleted()) {
-                        throw new BusinessException(409, "你已加入该课程");
-                    }
-                    // 曾退课，重新加入
-                    cm.setDeleted(false);
-                    cm.setRole(CourseMemberRole.STUDENT);
-                    return courseMemberRepository.save(cm);
-                })
-                .orElseGet(() -> {
-                    CourseMember cm = CourseMember.builder()
-                            .courseId(course.getId())
-                            .userId(userId)
-                            .role(CourseMemberRole.STUDENT)
-                            .build();
-                    return courseMemberRepository.save(cm);
-                });
+                .map(member -> restoreFormerMember(member))
+                .orElseGet(() -> courseMemberRepository.save(CourseMember.builder()
+                        .courseId(course.getId())
+                        .userId(userId)
+                        .role(CourseMemberRole.STUDENT)
+                        .isArchived(false)
+                        .build()));
     }
 
-    public Course getDetail(Long courseId, Long userId) {
-        getMemberOrThrow(courseId, userId);
-        return courseRepository.findById(courseId)
-                .orElseThrow(() -> new BusinessException(404, "课程不存在"));
+    @Transactional(readOnly = true)
+    public CourseDetailResponse getDetail(Long courseId, Long userId) {
+        CourseMember member = getMemberOrThrow(courseId, userId);
+        Course course = getCourseOrThrow(courseId);
+        long memberCount = courseMemberRepository.countActiveMembersByCourseId(courseId);
+        return toDetail(course, member.getRole(), memberCount);
     }
 
-    /** 获取课程成员列表（支持按角色筛选） */
-    public List<CourseMember> getMemberList(Long courseId, Long userId, String roleFilter) {
+    /** 获取课程成员展示信息。 */
+    @Transactional(readOnly = true)
+    public Page<CourseMemberResponse> getMemberList(Long courseId,
+                                                     Long userId,
+                                                     CourseMemberRole roleFilter,
+                                                     Pageable pageable) {
         getMemberOrThrow(courseId, userId);
-        List<CourseMember> members = courseMemberRepository.findByCourseId(courseId);
-        if (roleFilter != null) {
-            CourseMemberRole filterRole = CourseMemberRole.valueOf(roleFilter);
-            members = members.stream().filter(m -> m.getRole() == filterRole).toList();
-        }
-        return members;
-    }
-
-    public Page<CourseMember> getMembers(Long courseId, Long userId, String roleFilter, Pageable pageable) {
-        getMemberOrThrow(courseId, userId);
-        // TODO: 实现分页查询成员
-        List<CourseMember> members = courseMemberRepository.findByCourseId(courseId);
-        if (roleFilter != null) {
-            CourseMemberRole filterRole = CourseMemberRole.valueOf(roleFilter);
-            members = members.stream().filter(m -> m.getRole() == filterRole).toList();
-        }
-        // 简化版：不分页，直接返回到前端处理
-        return null;
+        getCourseOrThrow(courseId);
+        return courseMemberRepository.findMemberResponses(courseId, roleFilter, pageable);
     }
 
     @Transactional
-    public Course updateCourse(Long courseId, Long userId, String name, String description, String coverUrl) {
-        getTeacherOrThrow(courseId, userId);
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new BusinessException(404, "课程不存在"));
-        if (name != null) course.setName(name);
-        if (description != null) course.setDescription(description);
-        if (coverUrl != null) course.setCoverUrl(coverUrl);
-        return courseRepository.save(course);
+    public CourseDetailResponse updateCourse(Long courseId, Long userId, UpdateCourseRequest request) {
+        CourseMember currentMember = getTeacherOrThrow(courseId, userId);
+        Course course = getCourseOrThrow(courseId);
+
+        if (request.name() != null) {
+            course.setName(normalizeRequired(request.name(), "课程名称不能为空"));
+        }
+        if (request.description() != null) {
+            course.setDescription(normalizeNullable(request.description()));
+        }
+        if (request.coverUrl() != null) {
+            course.setCoverUrl(normalizeNullable(request.coverUrl()));
+        }
+        course = courseRepository.save(course);
+
+        long memberCount = courseMemberRepository.countActiveMembersByCourseId(courseId);
+        return toDetail(course, currentMember.getRole(), memberCount);
+    }
+
+    /** 创建者授予或撤销课程共管权限。 */
+    @Transactional
+    public CourseMember updateMemberRole(Long courseId,
+                                         Long currentUserId,
+                                         Long targetUserId,
+                                         CourseMemberRole targetRole) {
+        getCreatorOrThrow(courseId, currentUserId);
+        if (targetRole != CourseMemberRole.TEACHER && targetRole != CourseMemberRole.STUDENT) {
+            throw new BusinessException(400, "成员角色只能设置为 TEACHER 或 STUDENT");
+        }
+
+        CourseMember target = getMemberOrThrow(courseId, targetUserId);
+        if (target.getRole() == CourseMemberRole.CREATOR) {
+            throw new BusinessException(400, "不能修改课程创建者角色");
+        }
+        if (targetRole == CourseMemberRole.TEACHER) {
+            User user = getEnabledUserOrThrow(targetUserId);
+            if (user.getRole() != UserRole.TEACHER) {
+                throw new BusinessException(400, "只有教师账号可以成为课程共管教师");
+            }
+        }
+
+        target.setRole(targetRole);
+        return courseMemberRepository.save(target);
     }
 
     @Transactional
-    public void performAction(Long courseId, Long userId, String action) {
-        switch (action.toUpperCase()) {
-            case "ARCHIVE" -> archiveForSelf(courseId, userId);
-            case "UNARCHIVE" -> unarchiveForSelf(courseId, userId);
-            case "ARCHIVE_FOR_ALL" -> archiveForAll(courseId, userId);
-            case "LEAVE" -> leaveCourse(courseId, userId);
-            case "DELETE" -> deleteCourse(courseId, userId);
-            default -> throw new BusinessException(400, "不支持的操作：" + action);
+    public void performAction(Long courseId, Long userId, CourseAction action) {
+        switch (action) {
+            case ARCHIVE -> archiveForSelf(courseId, userId);
+            case UNARCHIVE -> unarchiveForSelf(courseId, userId);
+            case ARCHIVE_FOR_ALL -> setCourseStatus(courseId, userId, CourseStatus.ARCHIVED);
+            case RESTORE_FOR_ALL -> setCourseStatus(courseId, userId, CourseStatus.ACTIVE);
+            case LEAVE -> leaveCourse(courseId, userId);
+            case DELETE -> deleteCourse(courseId, userId);
         }
+    }
+
+    private CourseMember restoreFormerMember(CourseMember member) {
+        if (!member.getDeleted()) {
+            throw new BusinessException(409, "你已加入该课程");
+        }
+        member.setDeleted(false);
+        member.setIsArchived(false);
+        member.setRole(CourseMemberRole.STUDENT);
+        return courseMemberRepository.save(member);
     }
 
     private void archiveForSelf(Long courseId, Long userId) {
-        CourseMember cm = getMemberOrThrow(courseId, userId);
-        cm.setIsArchived(true);
-        courseMemberRepository.save(cm);
+        CourseMember member = getMemberOrThrow(courseId, userId);
+        member.setIsArchived(true);
+        courseMemberRepository.save(member);
     }
 
     private void unarchiveForSelf(Long courseId, Long userId) {
-        CourseMember cm = courseMemberRepository.findByCourseIdAndUserId(courseId, userId)
-                .orElseThrow(() -> new BusinessException(404, "未加入该课程"));
-        cm.setIsArchived(false);
-        courseMemberRepository.save(cm);
+        CourseMember member = getMemberOrThrow(courseId, userId);
+        member.setIsArchived(false);
+        courseMemberRepository.save(member);
     }
 
-    private void archiveForAll(Long courseId, Long userId) {
+    private void setCourseStatus(Long courseId, Long userId, CourseStatus status) {
         getCreatorOrThrow(courseId, userId);
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new BusinessException(404, "课程不存在"));
-        course.setStatus(CourseStatus.ARCHIVED);
+        Course course = getCourseOrThrow(courseId);
+        course.setStatus(status);
         courseRepository.save(course);
     }
 
     private void leaveCourse(Long courseId, Long userId) {
-        CourseMember cm = getMemberOrThrow(courseId, userId);
-        if (cm.getRole() == CourseMemberRole.CREATOR) {
-            throw new BusinessException(400, "创建者不能退课，请转让课程或删除课程");
+        CourseMember member = getMemberOrThrow(courseId, userId);
+        if (member.getRole() == CourseMemberRole.CREATOR) {
+            throw new BusinessException(400, "创建者不能退课，请先删除课程");
         }
-        cm.setDeleted(true);
-        courseMemberRepository.save(cm);
+        member.setDeleted(true);
+        member.setIsArchived(false);
+        courseMemberRepository.save(member);
     }
 
     private void deleteCourse(Long courseId, Long userId) {
         getCreatorOrThrow(courseId, userId);
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new BusinessException(404, "课程不存在"));
+        Course course = getCourseOrThrow(courseId);
         course.setDeleted(true);
         courseRepository.save(course);
     }
 
-    /** 生成 6 位随机课程号 */
-    private String generateCourseCode() {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 6; i++) {
-            sb.append(chars.charAt((int) (Math.random() * chars.length())));
+    private Course getCourseOrThrow(Long courseId) {
+        return courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(404, "课程不存在"));
+    }
+
+    private User getEnabledUserOrThrow(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        if (!Boolean.TRUE.equals(user.getEnabled())) {
+            throw new BusinessException(403, "账号已被禁用");
         }
-        String code = sb.toString();
-        // 冲突检查
-        if (courseRepository.existsByCourseCode(code)) {
-            return generateCourseCode();
+        return user;
+    }
+
+    private CourseDetailResponse toDetail(Course course,
+                                          CourseMemberRole currentUserRole,
+                                          long memberCount) {
+        return new CourseDetailResponse(
+                course.getId(),
+                course.getName(),
+                course.getDescription(),
+                course.getCourseCode(),
+                course.getCoverUrl(),
+                course.getStatus(),
+                course.getCreatorId(),
+                currentUserRole,
+                memberCount,
+                course.getCreateTime(),
+                course.getUpdateTime());
+    }
+
+    private String generateUniqueCourseCode() {
+        for (int attempt = 0; attempt < COURSE_CODE_MAX_ATTEMPTS; attempt++) {
+            StringBuilder code = new StringBuilder(COURSE_CODE_LENGTH);
+            for (int i = 0; i < COURSE_CODE_LENGTH; i++) {
+                code.append(COURSE_CODE_CHARS.charAt(SECURE_RANDOM.nextInt(COURSE_CODE_CHARS.length())));
+            }
+            String candidate = code.toString();
+            if (!courseRepository.existsByCourseCode(candidate)) {
+                return candidate;
+            }
         }
-        return code;
+        throw new BusinessException(500, "课程号生成失败，请稍后重试");
+    }
+
+    private String normalizeCourseCode(String rawCourseCode) {
+        if (rawCourseCode == null) {
+            throw new BusinessException(400, "课程号不能为空");
+        }
+        String courseCode = rawCourseCode.trim().toUpperCase(Locale.ROOT);
+        if (!courseCode.matches("[A-Z0-9]{6}")) {
+            throw new BusinessException(400, "课程号应为6位字母或数字");
+        }
+        return courseCode;
+    }
+
+    private String normalizeRequired(String value, String message) {
+        String normalized = normalizeNullable(value);
+        if (normalized == null) {
+            throw new BusinessException(400, message);
+        }
+        return normalized;
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

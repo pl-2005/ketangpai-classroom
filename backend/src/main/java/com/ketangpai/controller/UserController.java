@@ -1,16 +1,17 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
-import com.ketangpai.model.entity.User;
+import com.ketangpai.dto.user.ChangePasswordRequest;
+import com.ketangpai.dto.user.UpdateProfileRequest;
+import com.ketangpai.dto.user.UserResponse;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 /**
  * 用户管理 Controller
@@ -23,13 +24,15 @@ public class UserController {
     private final UserService userService;
 
     @PutMapping("/profile")
-    public Result<User> updateProfile(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
-        return Result.ok(userService.updateProfile(userId, body.get("realName"), body.get("email")));
+    public Result<UserResponse> updateProfile(@CurrentUserId Long userId,
+                                               @Valid @RequestBody UpdateProfileRequest request) {
+        return Result.ok(userService.updateProfile(userId, request.realName(), request.email()));
     }
 
     @PutMapping("/password")
-    public Result<Void> changePassword(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
-        userService.changePassword(userId, body.get("oldPassword"), body.get("newPassword"));
+    public Result<Void> changePassword(@CurrentUserId Long userId,
+                                       @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userId, request.oldPassword(), request.newPassword());
         return Result.ok();
     }
 }

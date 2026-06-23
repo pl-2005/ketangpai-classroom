@@ -1,24 +1,31 @@
 package com.ketangpai.security;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ketangpai.exception.BusinessException;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Map;
+import java.util.Date;
 
 /**
- * JWT 工具类 — 自实现 HMAC-SHA256，无需 jjwt-jackson（避免 Jackson 3 冲突）
+ * JWT 生成与校验。签名和标准时间声明交由 JJWT 处理。
  */
 @Component
 public class JwtUtil {
+
+    private static final int MIN_SECRET_BYTES = 32;
+    private static final int MAX_TOKEN_LENGTH = 4096;
+    private static final long ALLOWED_CLOCK_SKEW_SECONDS = 30;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -26,105 +33,141 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long expiration;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Value("${jwt.issuer}")
+    private String issuer;
 
-    private SecretKeySpec keySpec;
+    @Value("${jwt.audience}")
+    private String audience;
+
+    private SecretKey signingKey;
 
     @PostConstruct
     void initKey() {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET 未配置");
+        }
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        keySpec = new SecretKeySpec(keyBytes, "HmacSHA256");
+        if (keyBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("JWT_SECRET 至少需要256位（32字节）");
+        }
+        if (expiration <= 0) {
+            throw new IllegalStateException("JWT_EXPIRATION 必须大于0");
+        }
+        if (issuer == null || issuer.isBlank() || audience == null || audience.isBlank()) {
+            throw new IllegalStateException("JWT issuer/audience 未配置");
+        }
+        signingKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /** 生成 JWT Token */
-    public String generateToken(Long userId, String role) {
+    public String generateToken(Long userId, String role, String passwordHash) {
         Instant now = Instant.now();
-        Instant exp = now.plusMillis(expiration);
+        Instant expiresAt = now.plusMillis(expiration);
 
-        String headerJson = toJson(Map.of("alg", "HS256", "typ", "JWT"));
-        String payloadJson = toJson(Map.of(
-                "sub", userId.toString(),
-                "role", role,
-                "iat", now.getEpochSecond(),
-                "exp", exp.getEpochSecond()
-        ));
-
-        String headerB64 = base64UrlEncode(headerJson);
-        String payloadB64 = base64UrlEncode(payloadJson);
-        String signingInput = headerB64 + "." + payloadB64;
-        String signature = base64UrlEncode(hmacSha256(signingInput));
-
-        return signingInput + "." + signature;
+        return Jwts.builder()
+                .header().type("JWT").and()
+                .issuer(issuer)
+                .subject(userId.toString())
+                .claim("aud", audience)
+                .claim("role", role)
+                .claim("ver", credentialVersion(passwordHash))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiresAt))
+                .signWith(signingKey, Jwts.SIG.HS256)
+                .compact();
     }
 
-    /** 验证并解析 Token，返回 claims */
     public JwtClaims parseToken(String token) {
         if (token == null || token.isBlank()) {
-            throw new BusinessException(401, "未提供认证令牌");
+            throw unauthorized("未提供认证令牌");
+        }
+        if (token.length() > MAX_TOKEN_LENGTH) {
+            throw unauthorized("认证令牌过长");
         }
 
-        String[] parts = token.split("\\.");
-        if (parts.length != 3) {
-            throw new BusinessException(401, "令牌格式无效");
-        }
-
-        String signingInput = parts[0] + "." + parts[1];
-        String expectedSig = base64UrlEncode(hmacSha256(signingInput));
-        if (!expectedSig.equals(parts[2])) {
-            throw new BusinessException(401, "令牌签名无效");
-        }
-
-        Map<String, Object> payload = fromJson(base64UrlDecode(parts[1]), new TypeReference<>() {});
-
-        long exp = ((Number) payload.get("exp")).longValue();
-        if (Instant.now().getEpochSecond() > exp) {
-            throw new BusinessException(401, "令牌已过期");
-        }
-
-        Long userId = Long.valueOf((String) payload.get("sub"));
-        String role = (String) payload.get("role");
-
-        return new JwtClaims(userId, role);
-    }
-
-    private byte[] hmacSha256(String data) {
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(keySpec);
-            return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            Jws<Claims> parsed = Jwts.parser()
+                    .verifyWith(signingKey)
+                    .clockSkewSeconds(ALLOWED_CLOCK_SKEW_SECONDS)
+                    .build()
+                    .parseSignedClaims(token);
+
+            if (!"HS256".equals(parsed.getHeader().getAlgorithm())) {
+                throw unauthorized("令牌签名算法无效");
+            }
+
+            Claims claims = parsed.getPayload();
+            String subject = claims.getSubject();
+            String tokenIssuer = claims.getIssuer();
+            String role = requiredString(claims, "role");
+            String version = requiredString(claims, "ver");
+
+            if (subject == null || subject.isBlank() || tokenIssuer == null || tokenIssuer.isBlank()
+                    || claims.getAudience() == null || claims.getAudience().size() != 1) {
+                throw unauthorized("令牌缺少必要声明");
+            }
+            if (!issuer.equals(tokenIssuer) || !claims.getAudience().contains(audience)) {
+                throw unauthorized("令牌签发方或受众无效");
+            }
+
+            Date issuedAt = claims.getIssuedAt();
+            Date expiresAt = claims.getExpiration();
+            if (issuedAt == null || expiresAt == null || !expiresAt.after(issuedAt)) {
+                throw unauthorized("令牌时间声明无效");
+            }
+            Instant latestAllowedIssueTime = Instant.now().plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS);
+            if (issuedAt.toInstant().isAfter(latestAllowedIssueTime)) {
+                throw unauthorized("令牌签发时间无效");
+            }
+            if (expiresAt.getTime() - issuedAt.getTime() > expiration + 1000) {
+                throw unauthorized("令牌有效期无效");
+            }
+
+            Long userId = Long.valueOf(subject);
+            if (userId <= 0) {
+                throw unauthorized("令牌用户无效");
+            }
+            return new JwtClaims(userId, role, version);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("HMAC 签名计算失败", e);
+            throw unauthorized("认证令牌无效");
         }
     }
 
-    private String base64UrlEncode(String data) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(data.getBytes(StandardCharsets.UTF_8));
+    public boolean isCredentialVersionValid(String tokenVersion, String passwordHash) {
+        if (tokenVersion == null || passwordHash == null) {
+            return false;
+        }
+        byte[] actual = tokenVersion.getBytes(StandardCharsets.UTF_8);
+        byte[] expected = credentialVersion(passwordHash).getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(actual, expected);
     }
 
-    private String base64UrlEncode(byte[] data) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(data);
-    }
-
-    private String base64UrlDecode(String data) {
-        return new String(Base64.getUrlDecoder().decode(data), StandardCharsets.UTF_8);
-    }
-
-    private String toJson(Object obj) {
+    private String credentialVersion(String passwordHash) {
+        if (passwordHash == null || passwordHash.isBlank()) {
+            throw new IllegalArgumentException("密码哈希不能为空");
+        }
         try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (Exception e) {
-            throw new RuntimeException("JSON 序列化失败", e);
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(passwordHash.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256不可用", e);
         }
     }
 
-    private Map<String, Object> fromJson(String json, TypeReference<Map<String, Object>> typeRef) {
-        try {
-            return objectMapper.readValue(json, typeRef);
-        } catch (Exception e) {
-            throw new BusinessException(401, "令牌解析失败");
+    private String requiredString(Claims claims, String name) {
+        String value = claims.get(name, String.class);
+        if (value == null || value.isBlank()) {
+            throw unauthorized("令牌缺少必要声明");
         }
+        return value;
     }
 
-    /** JWT 解析结果 */
-    public record JwtClaims(Long userId, String role) {}
+    private BusinessException unauthorized(String message) {
+        return new BusinessException(401, message);
+    }
+
+    public record JwtClaims(Long userId, String role, String credentialVersion) {
+    }
 }

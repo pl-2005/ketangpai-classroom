@@ -1,5 +1,7 @@
 package com.ketangpai.security;
 
+import com.ketangpai.model.entity.User;
+import com.ketangpai.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,9 +28,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -41,11 +45,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(BEARER_PREFIX.length());
             try {
                 JwtUtil.JwtClaims claims = jwtUtil.parseToken(token);
+                User user = userRepository.findById(claims.userId())
+                        .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+                if (!Boolean.TRUE.equals(user.getEnabled())) {
+                    throw new IllegalArgumentException("账号已禁用");
+                }
+                if (!user.getRole().name().equals(claims.role())) {
+                    throw new IllegalArgumentException("用户角色已变更");
+                }
+                if (!jwtUtil.isCredentialVersionValid(claims.credentialVersion(), user.getPassword())) {
+                    throw new IllegalArgumentException("登录凭据已失效");
+                }
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                claims.userId(),
+                                user.getId(),
                                 null,
-                                List.of(new SimpleGrantedAuthority("ROLE_" + claims.role()))
+                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
                         );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (Exception e) {

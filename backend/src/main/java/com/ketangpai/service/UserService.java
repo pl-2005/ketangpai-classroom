@@ -1,7 +1,8 @@
 package com.ketangpai.service;
 
-import com.ketangpai.model.entity.User;
+import com.ketangpai.dto.user.UserResponse;
 import com.ketangpai.exception.BusinessException;
+import com.ketangpai.model.entity.User;
 import com.ketangpai.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +20,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User updateProfile(Long userId, String realName, String email) {
+    public UserResponse updateProfile(Long userId, String realName, String email) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
 
@@ -30,7 +31,7 @@ public class UserService {
         if (realName != null) user.setRealName(realName);
         if (email != null) user.setEmail(email);
 
-        return userRepository.save(user);
+        return UserResponse.from(userRepository.save(user));
     }
 
     @Transactional

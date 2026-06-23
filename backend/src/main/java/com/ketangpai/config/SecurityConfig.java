@@ -7,6 +7,8 @@ import com.ketangpai.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -42,7 +44,7 @@ public class SecurityConfig implements WebMvcConfigurer {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                 .requestMatchers("/api/health").permitAll()
                 .anyRequest().authenticated()
             )
@@ -58,8 +60,8 @@ public class SecurityConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder(@Value("${security.bcrypt.strength:12}") int strength) {
+        return new BCryptPasswordEncoder(strength);
     }
 
     @Override
