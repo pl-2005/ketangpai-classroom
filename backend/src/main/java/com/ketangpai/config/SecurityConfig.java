@@ -27,14 +27,12 @@ public class SecurityConfig implements WebMvcConfigurer {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CurrentUserIdResolver currentUserIdResolver;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CurrentUserIdResolver currentUserIdResolver,
-                          ObjectMapper objectMapper) {
+                          CurrentUserIdResolver currentUserIdResolver) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.currentUserIdResolver = currentUserIdResolver;
-        this.objectMapper = objectMapper;
     }
 
     @Bean

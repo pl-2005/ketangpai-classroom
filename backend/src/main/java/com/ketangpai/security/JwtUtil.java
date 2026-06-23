@@ -26,11 +26,7 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long expiration;
 
-    private final ObjectMapper objectMapper;
-
-    public JwtUtil(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private SecretKeySpec keySpec;
 
