@@ -3,6 +3,7 @@ package com.ketangpai.controller;
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.LessonDraft;
 import com.ketangpai.model.enums.DraftType;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.LessonDraftService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,14 +30,13 @@ public class LessonDraftController {
     private final LessonDraftService draftService;
 
     @GetMapping
-    public Result<List<LessonDraft>> list(@RequestParam(required = false) String type) {
-        Long userId = 1L;
+    public Result<List<LessonDraft>> list(@CurrentUserId Long userId,
+                                           @RequestParam(required = false) String type) {
         return Result.ok(draftService.list(userId, type));
     }
 
     @PostMapping
-    public Result<LessonDraft> save(@RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<LessonDraft> save(@CurrentUserId Long userId, @RequestBody Map<String, Object> body) {
         return Result.ok(draftService.save(userId,
                 DraftType.valueOf((String) body.get("type")),
                 (String) body.get("title"),
@@ -44,22 +44,23 @@ public class LessonDraftController {
     }
 
     @PutMapping("/{draftId}")
-    public Result<LessonDraft> update(@PathVariable Long draftId, @RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<LessonDraft> update(@CurrentUserId Long userId,
+                                       @PathVariable Long draftId,
+                                       @RequestBody Map<String, String> body) {
         return Result.ok(draftService.update(draftId, userId,
                 body.get("title"), body.get("contentJson")));
     }
 
     @PostMapping("/{draftId}/publish")
-    public Result<Void> publish(@PathVariable Long draftId, @RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Void> publish(@CurrentUserId Long userId,
+                                 @PathVariable Long draftId,
+                                 @RequestBody Map<String, Object> body) {
         draftService.publish(draftId, userId, ((Number) body.get("courseId")).longValue());
         return Result.ok();
     }
 
     @DeleteMapping("/{draftId}")
-    public Result<Void> delete(@PathVariable Long draftId) {
-        Long userId = 1L;
+    public Result<Void> delete(@CurrentUserId Long userId, @PathVariable Long draftId) {
         draftService.delete(draftId, userId);
         return Result.ok();
     }

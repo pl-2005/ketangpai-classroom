@@ -4,6 +4,7 @@ import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.Material;
 import com.ketangpai.model.entity.MaterialFolder;
 import com.ketangpai.model.enums.MaterialType;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.MaterialService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,14 +30,12 @@ public class MaterialController {
     private final MaterialService materialService;
 
     @GetMapping("/courses/{courseId}/materials/tree")
-    public Result<List<Map<String, Object>>> getTree(@PathVariable Long courseId) {
-        Long userId = 1L;
+    public Result<List<Map<String, Object>>> getTree(@CurrentUserId Long userId, @PathVariable Long courseId) {
         return Result.ok(materialService.getTree(courseId, userId));
     }
 
     @PostMapping("/materials/folders")
-    public Result<MaterialFolder> createFolder(@RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<MaterialFolder> createFolder(@CurrentUserId Long userId, @RequestBody Map<String, Object> body) {
         return Result.ok(materialService.createFolder(
                 ((Number) body.get("courseId")).longValue(),
                 userId,
@@ -45,8 +44,7 @@ public class MaterialController {
     }
 
     @PostMapping("/materials")
-    public Result<Material> create(@RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Material> create(@CurrentUserId Long userId, @RequestBody Map<String, Object> body) {
         return Result.ok(materialService.create(
                 ((Number) body.get("courseId")).longValue(),
                 userId,
@@ -59,31 +57,31 @@ public class MaterialController {
     }
 
     @PutMapping("/materials/{materialId}/move")
-    public Result<Void> move(@PathVariable Long materialId, @RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Void> move(@CurrentUserId Long userId,
+                              @PathVariable Long materialId,
+                              @RequestBody Map<String, Object> body) {
         materialService.move(materialId, userId,
                 body.get("targetFolderId") != null ? ((Number) body.get("targetFolderId")).longValue() : null);
         return Result.ok();
     }
 
     @PutMapping("/materials/{materialId}")
-    public Result<Material> update(@PathVariable Long materialId, @RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Material> update(@CurrentUserId Long userId,
+                                    @PathVariable Long materialId,
+                                    @RequestBody Map<String, Object> body) {
         return Result.ok(materialService.update(materialId, userId,
                 (String) body.get("title"),
                 body.get("sortOrder") != null ? ((Number) body.get("sortOrder")).intValue() : null));
     }
 
     @DeleteMapping("/materials/{materialId}")
-    public Result<Void> deleteMaterial(@PathVariable Long materialId) {
-        Long userId = 1L;
+    public Result<Void> deleteMaterial(@CurrentUserId Long userId, @PathVariable Long materialId) {
         materialService.deleteMaterial(materialId, userId);
         return Result.ok();
     }
 
     @DeleteMapping("/materials/folders/{folderId}")
-    public Result<Void> deleteFolder(@PathVariable Long folderId) {
-        Long userId = 1L;
+    public Result<Void> deleteFolder(@CurrentUserId Long userId, @PathVariable Long folderId) {
         materialService.deleteFolder(folderId, userId);
         return Result.ok();
     }

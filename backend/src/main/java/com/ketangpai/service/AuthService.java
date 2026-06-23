@@ -4,10 +4,13 @@ import com.ketangpai.model.entity.User;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.UserRole;
 import com.ketangpai.repository.UserRepository;
+import com.ketangpai.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 /**
  * 账号认证服务
@@ -18,6 +21,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Transactional
     public User register(String username, String password, String email, String realName, UserRole role) {
@@ -41,7 +45,8 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public User login(String username, String password) {
+    /** 登录并返回 JWT Token 和用户信息 */
+    public Map<String, Object> login(String username, String password) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException(401, "用户名或密码错误"));
 
@@ -51,7 +56,19 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(401, "用户名或密码错误");
         }
-        return user;
+
+        String token = jwtUtil.generateToken(user.getId(), user.getRole().name());
+
+        return Map.of(
+                "token", token,
+                "user", Map.of(
+                        "id", user.getId(),
+                        "username", user.getUsername(),
+                        "realName", user.getRealName(),
+                        "role", user.getRole(),
+                        "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+                )
+        );
     }
 
     public User getCurrentUser(Long userId) {

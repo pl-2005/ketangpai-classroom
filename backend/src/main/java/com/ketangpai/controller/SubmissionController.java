@@ -2,6 +2,7 @@ package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.Submission;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,24 +28,25 @@ public class SubmissionController {
     private final SubmissionService submissionService;
 
     @PostMapping("/assignments/{assignmentId}/submit")
-    public Result<Submission> submit(@PathVariable Long assignmentId, @RequestBody Map<String, Object> body) {
-        Long studentId = 1L;
+    public Result<Submission> submit(@CurrentUserId Long userId,
+                                      @PathVariable Long assignmentId,
+                                      @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Long> fileIds = (List<Long>) body.get("fileIds");
-        return Result.ok(submissionService.submit(assignmentId, studentId,
+        return Result.ok(submissionService.submit(assignmentId, userId,
                 (String) body.get("content"), fileIds));
     }
 
     @GetMapping("/assignments/{assignmentId}/submissions")
-    public Result<List<Submission>> listByAssignment(@PathVariable Long assignmentId,
+    public Result<List<Submission>> listByAssignment(@CurrentUserId Long userId,
+                                                      @PathVariable Long assignmentId,
                                                       @RequestParam(required = false) String status) {
-        Long teacherId = 1L;
-        return Result.ok(submissionService.listByAssignment(assignmentId, teacherId, status));
+        return Result.ok(submissionService.listByAssignment(assignmentId, userId, status));
     }
 
     @GetMapping("/submissions/{submissionId}")
-    public Result<Map<String, Object>> getDetail(@PathVariable Long submissionId) {
-        Long userId = 1L;
+    public Result<Map<String, Object>> getDetail(@CurrentUserId Long userId,
+                                                  @PathVariable Long submissionId) {
         return Result.ok(Map.of(
                 "submission", submissionService.getDetail(submissionId, userId),
                 "files", submissionService.getFiles(submissionId)
@@ -52,16 +54,18 @@ public class SubmissionController {
     }
 
     @PutMapping("/submissions/{submissionId}/grade")
-    public Result<Submission> grade(@PathVariable Long submissionId, @RequestBody Map<String, Object> body) {
-        Long teacherId = 1L;
-        return Result.ok(submissionService.grade(submissionId, teacherId,
+    public Result<Submission> grade(@CurrentUserId Long userId,
+                                     @PathVariable Long submissionId,
+                                     @RequestBody Map<String, Object> body) {
+        return Result.ok(submissionService.grade(submissionId, userId,
                 body.get("score") != null ? ((Number) body.get("score")).intValue() : null,
                 (String) body.get("teacherComment")));
     }
 
     @PostMapping("/submissions/{submissionId}/return")
-    public Result<Submission> returnSubmission(@PathVariable Long submissionId, @RequestBody Map<String, String> body) {
-        Long teacherId = 1L;
-        return Result.ok(submissionService.returnSubmission(submissionId, teacherId, body.get("reason")));
+    public Result<Submission> returnSubmission(@CurrentUserId Long userId,
+                                                @PathVariable Long submissionId,
+                                                @RequestBody Map<String, String> body) {
+        return Result.ok(submissionService.returnSubmission(submissionId, userId, body.get("reason")));
     }
 }

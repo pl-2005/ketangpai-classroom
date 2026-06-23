@@ -3,6 +3,7 @@ package com.ketangpai.controller;
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.enums.AssignmentStatus;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.AssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,15 +29,15 @@ public class AssignmentController {
     private final AssignmentService assignmentService;
 
     @GetMapping("/courses/{courseId}/assignments")
-    public Result<List<Assignment>> listByCourse(@PathVariable Long courseId,
+    public Result<List<Assignment>> listByCourse(@CurrentUserId Long userId,
+                                                  @PathVariable Long courseId,
                                                   @RequestParam(required = false) String status) {
-        Long userId = 1L;
         return Result.ok(assignmentService.listByCourse(courseId, userId, status));
     }
 
     @GetMapping("/assignments/{assignmentId}")
-    public Result<Map<String, Object>> getDetail(@PathVariable Long assignmentId) {
-        Long userId = 1L;
+    public Result<Map<String, Object>> getDetail(@CurrentUserId Long userId,
+                                                  @PathVariable Long assignmentId) {
         Assignment assignment = assignmentService.getDetail(assignmentId, userId);
         return Result.ok(Map.of(
                 "assignment", assignment,
@@ -45,8 +46,7 @@ public class AssignmentController {
     }
 
     @PostMapping("/assignments")
-    public Result<Assignment> create(@RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Assignment> create(@CurrentUserId Long userId, @RequestBody Map<String, Object> body) {
         return Result.ok(assignmentService.create(userId,
                 (String) body.get("title"),
                 (String) body.get("content"),
@@ -59,8 +59,9 @@ public class AssignmentController {
     }
 
     @PutMapping("/assignments/{assignmentId}")
-    public Result<Assignment> update(@PathVariable Long assignmentId, @RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Assignment> update(@CurrentUserId Long userId,
+                                      @PathVariable Long assignmentId,
+                                      @RequestBody Map<String, Object> body) {
         return Result.ok(assignmentService.update(assignmentId, userId,
                 (String) body.get("title"),
                 (String) body.get("content"),
@@ -71,15 +72,17 @@ public class AssignmentController {
     }
 
     @PostMapping("/assignments/{assignmentId}/status")
-    public Result<Assignment> updateStatus(@PathVariable Long assignmentId, @RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<Assignment> updateStatus(@CurrentUserId Long userId,
+                                            @PathVariable Long assignmentId,
+                                            @RequestBody Map<String, String> body) {
         return Result.ok(assignmentService.updateStatus(assignmentId, userId,
                 AssignmentStatus.valueOf(body.get("status"))));
     }
 
     @PostMapping("/assignments/{assignmentId}/urge")
-    public Result<Map<String, Object>> urge(@PathVariable Long assignmentId, @RequestBody Map<String, Object> body) {
-        Long userId = 1L;
+    public Result<Map<String, Object>> urge(@CurrentUserId Long userId,
+                                             @PathVariable Long assignmentId,
+                                             @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Long> studentIds = (List<Long>) body.get("studentIds");
         long count = assignmentService.urge(assignmentId, userId, studentIds);

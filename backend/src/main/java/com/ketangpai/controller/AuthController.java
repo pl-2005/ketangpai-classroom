@@ -3,6 +3,7 @@ package com.ketangpai.controller;
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.User;
 import com.ketangpai.model.enums.UserRole;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,25 +38,11 @@ public class AuthController {
 
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> body) {
-        User user = authService.login(body.get("username"), body.get("password"));
-        // TODO: 生成 JWT Token
-        String token = "TODO-jwt-token";
-        return Result.ok(Map.of(
-                "token", token,
-                "user", Map.of(
-                        "id", user.getId(),
-                        "username", user.getUsername(),
-                        "realName", user.getRealName(),
-                        "role", user.getRole(),
-                        "avatarUrl", user.getAvatarUrl()
-                )
-        ));
+        return Result.ok(authService.login(body.get("username"), body.get("password")));
     }
 
     @GetMapping("/me")
-    public Result<User> me() {
-        // TODO: 从 SecurityContext 获取当前用户 ID
-        Long userId = 1L; // 占位
+    public Result<User> me(@CurrentUserId Long userId) {
         return Result.ok(authService.getCurrentUser(userId));
     }
 }

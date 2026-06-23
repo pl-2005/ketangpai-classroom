@@ -3,6 +3,7 @@ package com.ketangpai.controller;
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.Course;
 import com.ketangpai.model.entity.CourseMember;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,48 +29,47 @@ public class CourseController {
     private final CourseService courseService;
 
     @GetMapping
-    public Result<List<CourseMember>> listMyCourses(@RequestParam(defaultValue = "false") boolean archived) {
-        Long userId = 1L;
+    public Result<List<CourseMember>> listMyCourses(@CurrentUserId Long userId,
+                                                     @RequestParam(defaultValue = "false") boolean archived) {
         return Result.ok(courseService.listMyCourses(userId, archived));
     }
 
     @PostMapping
-    public Result<Course> create(@RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<Course> create(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
         return Result.ok(courseService.createCourse(userId,
                 body.get("name"), body.get("description"), body.get("coverUrl")));
     }
 
     @PostMapping("/join")
-    public Result<CourseMember> join(@RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<CourseMember> join(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
         return Result.ok(courseService.joinByCode(userId, body.get("courseCode")));
     }
 
     @GetMapping("/{courseId}")
-    public Result<Course> getDetail(@PathVariable Long courseId) {
-        Long userId = 1L;
+    public Result<Course> getDetail(@CurrentUserId Long userId, @PathVariable Long courseId) {
         return Result.ok(courseService.getDetail(courseId, userId));
     }
 
     @GetMapping("/{courseId}/members")
-    public Result<List<CourseMember>> getMembers(@PathVariable Long courseId,
+    public Result<List<CourseMember>> getMembers(@CurrentUserId Long userId,
+                                                  @PathVariable Long courseId,
                                                   @RequestParam(required = false) String role) {
-        Long userId = 1L;
         List<CourseMember> members = courseService.getMemberList(courseId, userId, role);
         return Result.ok(members);
     }
 
     @PutMapping("/{courseId}")
-    public Result<Course> update(@PathVariable Long courseId, @RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<Course> update(@CurrentUserId Long userId,
+                                  @PathVariable Long courseId,
+                                  @RequestBody Map<String, String> body) {
         return Result.ok(courseService.updateCourse(courseId, userId,
                 body.get("name"), body.get("description"), body.get("coverUrl")));
     }
 
     @PostMapping("/{courseId}/action")
-    public Result<Void> action(@PathVariable Long courseId, @RequestBody Map<String, String> body) {
-        Long userId = 1L;
+    public Result<Void> action(@CurrentUserId Long userId,
+                                @PathVariable Long courseId,
+                                @RequestBody Map<String, String> body) {
         courseService.performAction(courseId, userId, body.get("action"));
         return Result.ok();
     }

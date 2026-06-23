@@ -1,6 +1,7 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -25,35 +26,31 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public Result<?> list(@RequestParam(defaultValue = "0") int page,
-                          @RequestParam(defaultValue = "20") int size) {
-        Long userId = 1L;
+    public Result<?> list(@CurrentUserId Long userId,
+                           @RequestParam(defaultValue = "0") int page,
+                           @RequestParam(defaultValue = "20") int size) {
         return Result.ok(notificationService.list(userId, PageRequest.of(page, size)));
     }
 
     @GetMapping("/unread-count")
-    public Result<Map<String, Long>> getUnreadCount() {
-        Long userId = 1L;
+    public Result<Map<String, Long>> getUnreadCount(@CurrentUserId Long userId) {
         return Result.ok(Map.of("count", notificationService.getUnreadCount(userId)));
     }
 
     @PutMapping("/{notificationId}/read")
-    public Result<Void> markRead(@PathVariable Long notificationId) {
-        Long userId = 1L;
+    public Result<Void> markRead(@CurrentUserId Long userId, @PathVariable Long notificationId) {
         notificationService.markRead(notificationId, userId);
         return Result.ok();
     }
 
     @PutMapping("/read-all")
-    public Result<Map<String, Integer>> markAllRead() {
-        Long userId = 1L;
+    public Result<Map<String, Integer>> markAllRead(@CurrentUserId Long userId) {
         int count = notificationService.markAllRead(userId);
         return Result.ok(Map.of("affected", count));
     }
 
     @DeleteMapping("/{notificationId}")
-    public Result<Void> delete(@PathVariable Long notificationId) {
-        Long userId = 1L;
+    public Result<Void> delete(@CurrentUserId Long userId, @PathVariable Long notificationId) {
         notificationService.delete(notificationId, userId);
         return Result.ok();
     }
