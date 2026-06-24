@@ -11,11 +11,15 @@
 ### 1.1 基础路径
 
 ```
-生产环境：https://api.ketangpai.example.com
-开发环境：http://localhost:8080
+生产环境：https://api.ketangpai.example.com/api/v1
+开发环境：http://localhost:8080/api/v1
 ```
 
-### 1.2 统一响应格式
+### 1.2 版本控制
+
+采用 **URL 路径版本** 策略，当前版本为 `v1`。后续破坏性变更通过 `/api/v2/` 前缀发布，旧版本保留至少一个学期过渡期。
+
+### 1.3 统一响应格式
 
 所有接口返回 `Result<T>` 结构：
 
@@ -38,18 +42,18 @@
 | 429 | 请求过于频繁（如登录失败次数过多） |
 | 500 | 服务器内部错误 |
 
-### 1.3 认证方式
+### 1.4 认证方式
 
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
 
-除 `/api/auth/**` 外，所有接口需要携带 Token。
+除 `/api/v1/auth/**` 外，所有接口需要携带 Token。
 
-### 1.4 分页参数
+### 1.5 分页参数
 
 ```
-GET /api/xxx?page=0&size=20&sort=createTime,desc
+GET /api/v1/xxx?page=0&size=20&sort=createTime,desc
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -80,19 +84,20 @@ GET /api/xxx?page=0&size=20&sort=createTime,desc
 
 | 模块 | 接口数 | 路径前缀 |
 |------|--------|----------|
-| 账号认证 | 3 | `/api/auth` |
-| 用户管理 | 3 | `/api/user` |
-| 课程管理 | 11 | `/api/courses` |
-| 作业管理 | 6 | `/api/assignments` |
-| 提交管理 | 5 | `/api/submissions` |
-| 资料管理 | 6 | `/api/materials` |
-| 话题讨论 | 7 | `/api/topics` |
-| 备课区 | 4 | `/api/drafts` |
-| AI 批阅 | 4 | `/api/ai-grading` |
-| 相似度分析 | 3 | `/api/similarity` |
-| AI 答疑 | 4 | `/api/ai-chat` |
-| 通知管理 | 4 | `/api/notifications` |
-| 文件上传 | 2 | `/api/files` |
+| 账号认证 | 6 | `/api/v1/auth` |
+| 用户管理 | 3 | `/api/v1/user` |
+| 课程管理 | 13 | `/api/v1/courses` |
+| 作业管理 | 6 | `/api/v1/assignments` |
+| 提交管理 | 5 | `/api/v1/submissions` |
+| 资料管理 | 6 | `/api/v1/materials` |
+| 话题讨论 | 7 | `/api/v1/topics` |
+| 备课区 | 5 | `/api/v1/drafts` |
+| AI 批阅 | 4 | `/api/v1/ai-grading` |
+| 相似度分析 | 3 | `/api/v1/similarity` |
+| AI 答疑 | 5 | `/api/v1/ai-chat` |
+| 通知管理 | 4 | `/api/v1/notifications` |
+| 文件上传 | 2 | `/api/v1/files` |
+| 任务管理 | 1 | `/api/v1/tasks` |
 
 ---
 
@@ -103,7 +108,7 @@ GET /api/xxx?page=0&size=20&sort=createTime,desc
 #### 3.1.1 注册
 
 ```
-POST /api/auth/register
+POST /api/v1/auth/register
 ```
 
 **请求体：**
@@ -152,7 +157,7 @@ POST /api/auth/register
 #### 3.1.2 登录
 
 ```
-POST /api/auth/login
+POST /api/v1/auth/login
 ```
 
 **请求体：**
@@ -188,7 +193,7 @@ POST /api/auth/login
 #### 3.1.3 获取当前用户信息
 
 ```
-GET /api/auth/me
+GET /api/v1/auth/me
 ```
 
 **响应：**
@@ -210,12 +215,109 @@ GET /api/auth/me
 
 ---
 
+#### 3.1.4 登出
+
+```
+POST /api/v1/auth/logout
+```
+
+**说明：** 将当前 Token 加入 Redis 黑名单，使其在剩余有效期内不可用。
+
+**请求头：** `Authorization: Bearer <JWT_TOKEN>`
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "已登出"
+}
+```
+
+**实现要点：**
+- 从请求头提取 JWT，解析过期时间
+- 将 Token 以 `blacklist:<token>` 为 Key 存入 Redis，TTL = Token 剩余有效期
+- 后续请求在 JWT 过滤器中检查黑名单，命中则返回 401
+
+---
+
+#### 3.1.5 忘记密码 — 发送重置邮件
+
+```
+POST /api/v1/auth/forgot-password
+```
+
+**请求体：**
+
+```json
+{
+  "email": "zhangsan@example.com"
+}
+```
+
+**说明：** 向已注册邮箱发送含重置链接的邮件。无论邮箱是否存在均返回成功（防止邮箱枚举）。
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "如果该邮箱已注册，重置邮件已发送"
+}
+```
+
+**实现要点：**
+- 生成一次性 Token（JWT，有效期 15 分钟，绑定用户 ID）
+- 重置链接格式：`https://ketangpai.example.com/reset-password?token=<RESET_TOKEN>`
+- 通过邮件服务（Spring Mail 或外部 SMTP）发送
+
+---
+
+#### 3.1.6 重置密码
+
+```
+POST /api/v1/auth/reset-password
+```
+
+**请求体：**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "newPassword": "NewPass789!"
+}
+```
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "密码重置成功，请重新登录"
+}
+```
+
+**错误场景：**
+
+| 场景 | code |
+|------|------|
+| Token 无效或已过期 | 400 |
+| 新密码格式不符合要求 | 400 |
+| 用户不存在 | 400 |
+
+**实现要点：**
+- 验证 Token 签名和有效期
+- 新密码需满足 8–32 字符、含大小写+数字
+- 重置成功后使所有该用户的旧 Token 失效（Redis 黑名单批量写入）
+
+---
+
 ### 3.2 用户管理
 
 #### 3.2.1 更新个人信息
 
 ```
-PUT /api/user/profile
+PUT /api/v1/user/profile
 ```
 
 **请求体：**
@@ -232,7 +334,7 @@ PUT /api/user/profile
 #### 3.2.2 修改密码
 
 ```
-PUT /api/user/password
+PUT /api/v1/user/password
 ```
 
 ```json
@@ -247,7 +349,7 @@ PUT /api/user/password
 #### 3.2.3 上传头像
 
 ```
-POST /api/user/avatar
+POST /api/v1/user/avatar
 Content-Type: multipart/form-data
 
 file: <binary>
@@ -272,7 +374,7 @@ file: <binary>
 #### 3.3.1 获取我的课程列表
 
 ```
-GET /api/courses
+GET /api/v1/courses
 ```
 
 **查询参数：**
@@ -317,7 +419,7 @@ GET /api/courses
 #### 3.3.2 创建课程
 
 ```
-POST /api/courses
+POST /api/v1/courses
 ```
 
 **请求体：**
@@ -337,7 +439,7 @@ POST /api/courses
 #### 3.3.3 通过课程号加入课程
 
 ```
-POST /api/courses/join
+POST /api/v1/courses/join
 ```
 
 ```json
@@ -353,7 +455,7 @@ POST /api/courses/join
 #### 3.3.4 获取课程详情
 
 ```
-GET /api/courses/{courseId}
+GET /api/v1/courses/{courseId}
 ```
 
 **响应包含：** 课程基本信息 + 当前用户在课程中的角色 + 成员数量。
@@ -363,7 +465,7 @@ GET /api/courses/{courseId}
 #### 3.3.5 获取课程成员列表
 
 ```
-GET /api/courses/{courseId}/members
+GET /api/v1/courses/{courseId}/members
 ```
 
 **查询参数：**
@@ -403,7 +505,7 @@ GET /api/courses/{courseId}/members
 #### 3.3.6 更新课程信息
 
 ```
-PUT /api/courses/{courseId}
+PUT /api/v1/courses/{courseId}
 ```
 
 权限：仅 CREATOR / TEACHER。
@@ -421,7 +523,7 @@ PUT /api/courses/{courseId}
 #### 3.3.7 课程操作（归档 / 恢复 / 退课 / 删除）
 
 ```
-POST /api/courses/{courseId}/action
+POST /api/v1/courses/{courseId}/action
 ```
 
 ```json
@@ -442,7 +544,7 @@ POST /api/courses/{courseId}/action
 #### 3.3.8 设置课程共管角色
 
 ```
-PUT /api/courses/{courseId}/members/{memberUserId}/role
+PUT /api/v1/courses/{courseId}/members/{memberUserId}/role
 ```
 
 权限：仅 `CREATOR`。目标用户必须已经加入课程；只有全局身份为教师的账号可以设置为 `TEACHER`。
@@ -458,7 +560,7 @@ PUT /api/courses/{courseId}/members/{memberUserId}/role
 #### 3.3.9 更新课程卡片顺序
 
 ```
-PUT /api/courses/order
+PUT /api/v1/courses/order
 ```
 
 ```json
@@ -481,7 +583,7 @@ PUT /api/courses/order
 #### 3.3.10 获取课程回收站
 
 ```
-GET /api/courses/trash?page=0&size=12
+GET /api/v1/courses/trash?page=0&size=12
 ```
 
 仅返回当前用户作为 `CREATOR` 删除的课程，包含删除时间 `deletedAt`。
@@ -489,7 +591,7 @@ GET /api/courses/trash?page=0&size=12
 #### 3.3.11 回收站操作
 
 ```
-POST /api/courses/{courseId}/trash/action
+POST /api/v1/courses/{courseId}/trash/action
 ```
 
 恢复课程：
@@ -512,12 +614,76 @@ POST /api/courses/{courseId}/trash/action
 
 ---
 
+#### 3.3.12 发布课程公告
+
+```
+POST /api/v1/courses/{courseId}/announcements
+```
+
+权限：仅 CREATOR / TEACHER。
+
+```json
+{
+  "title": "期末考试安排通知",
+  "content": "<p>期末考试将于 7 月 15 日上午 9:00 在 301 教室进行...</p>"
+}
+```
+
+**效果：** 所有课程成员收到类型为 `COURSE_ANNOUNCEMENT` 的通知。
+
+**错误场景：**
+
+| 场景 | code |
+|------|------|
+| 课程不存在 | 404 |
+| 无权限 | 403 |
+
+---
+
+#### 3.3.13 设置课程讨论开关
+
+```
+PUT /api/v1/courses/{courseId}/discussion
+```
+
+权限：仅 CREATOR / TEACHER。
+
+```json
+{
+  "enabled": false
+}
+```
+
+**说明：** 关闭后，该课程下所有话题禁止新增回复，前端隐藏回复入口。课程内所有话题的 `discussionEnabled` 字段统一更新。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "courseId": 1,
+    "discussionEnabled": false
+  }
+}
+```
+
+**错误场景：**
+
+| 场景 | code |
+|------|------|
+| 课程不存在 | 404 |
+| 无权限 | 403 |
+
+---
+
 ### 3.4 作业管理
 
 #### 3.4.1 获取课程作业列表
 
 ```
-GET /api/courses/{courseId}/assignments
+GET /api/v1/courses/{courseId}/assignments
 ```
 
 **查询参数：**
@@ -538,7 +704,7 @@ GET /api/courses/{courseId}/assignments
 #### 3.4.2 获取作业详情
 
 ```
-GET /api/assignments/{assignmentId}
+GET /api/v1/assignments/{assignmentId}
 ```
 
 **响应（教师视角）：**
@@ -585,7 +751,7 @@ GET /api/assignments/{assignmentId}
 #### 3.4.3 创建作业
 
 ```
-POST /api/assignments
+POST /api/v1/assignments
 ```
 
 权限：教师。
@@ -617,7 +783,7 @@ POST /api/assignments
 #### 3.4.4 更新作业
 
 ```
-PUT /api/assignments/{assignmentId}
+PUT /api/v1/assignments/{assignmentId}
 ```
 
 权限：教师。仅 `DRAFT` 状态可大幅修改；`PUBLISHED` 状态仅可修改 `deadline` 和 `content`。
@@ -627,7 +793,7 @@ PUT /api/assignments/{assignmentId}
 #### 3.4.5 发布 / 关闭作业
 
 ```
-POST /api/assignments/{assignmentId}/status
+POST /api/v1/assignments/{assignmentId}/status
 ```
 
 ```json
@@ -646,7 +812,7 @@ POST /api/assignments/{assignmentId}/status
 #### 3.4.6 催交
 
 ```
-POST /api/assignments/{assignmentId}/urge
+POST /api/v1/assignments/{assignmentId}/urge
 ```
 
 权限：教师。所有未提交学生收到催交通知。
@@ -666,7 +832,7 @@ POST /api/assignments/{assignmentId}/urge
 #### 3.5.1 学生提交作业
 
 ```
-POST /api/assignments/{assignmentId}/submit
+POST /api/v1/assignments/{assignmentId}/submit
 ```
 
 权限：学生。
@@ -693,7 +859,7 @@ POST /api/assignments/{assignmentId}/submit
 #### 3.5.2 获取某作业的全部提交（教师）
 
 ```
-GET /api/assignments/{assignmentId}/submissions
+GET /api/v1/assignments/{assignmentId}/submissions
 ```
 
 **查询参数：**
@@ -743,7 +909,7 @@ GET /api/assignments/{assignmentId}/submissions
 #### 3.5.3 获取单个提交详情
 
 ```
-GET /api/submissions/{submissionId}
+GET /api/v1/submissions/{submissionId}
 ```
 
 ---
@@ -751,7 +917,7 @@ GET /api/submissions/{submissionId}
 #### 3.5.4 教师批阅评分
 
 ```
-PUT /api/submissions/{submissionId}/grade
+PUT /api/v1/submissions/{submissionId}/grade
 ```
 
 权限：教师。
@@ -770,7 +936,7 @@ PUT /api/submissions/{submissionId}/grade
 #### 3.5.5 教师退回作业
 
 ```
-POST /api/submissions/{submissionId}/return
+POST /api/v1/submissions/{submissionId}/return
 ```
 
 权限：教师。
@@ -790,7 +956,7 @@ POST /api/submissions/{submissionId}/return
 #### 3.6.1 获取课程资料目录树
 
 ```
-GET /api/courses/{courseId}/materials/tree
+GET /api/v1/courses/{courseId}/materials/tree
 ```
 
 **响应：**
@@ -837,7 +1003,7 @@ GET /api/courses/{courseId}/materials/tree
 #### 3.6.2 创建文件夹
 
 ```
-POST /api/materials/folders
+POST /api/v1/materials/folders
 ```
 
 ```json
@@ -853,7 +1019,7 @@ POST /api/materials/folders
 #### 3.6.3 上传资料
 
 ```
-POST /api/materials
+POST /api/v1/materials
 ```
 
 ```json
@@ -884,7 +1050,7 @@ POST /api/materials
 #### 3.6.4 移动资料 / 文件夹
 
 ```
-PUT /api/materials/{materialId}/move
+PUT /api/v1/materials/{materialId}/move
 ```
 
 ```json
@@ -898,7 +1064,7 @@ PUT /api/materials/{materialId}/move
 #### 3.6.5 更新资料信息
 
 ```
-PUT /api/materials/{materialId}
+PUT /api/v1/materials/{materialId}
 ```
 
 ```json
@@ -913,8 +1079,8 @@ PUT /api/materials/{materialId}
 #### 3.6.6 删除资料 / 文件夹
 
 ```
-DELETE /api/materials/{materialId}      // 资料软删除
-DELETE /api/materials/folders/{folderId} // 文件夹及内容全部软删除
+DELETE /api/v1/materials/{materialId}      // 资料软删除
+DELETE /api/v1/materials/folders/{folderId} // 文件夹及内容全部软删除
 ```
 
 ---
@@ -924,7 +1090,7 @@ DELETE /api/materials/folders/{folderId} // 文件夹及内容全部软删除
 #### 3.7.1 获取课程话题列表
 
 ```
-GET /api/courses/{courseId}/topics
+GET /api/v1/courses/{courseId}/topics
 ```
 
 **响应：** 置顶话题优先，然后按时间倒序。匿名话题隐藏 `authorName`。
@@ -957,7 +1123,7 @@ GET /api/courses/{courseId}/topics
 #### 3.7.2 获取话题详情（含回复列表）
 
 ```
-GET /api/topics/{topicId}
+GET /api/v1/topics/{topicId}
 ```
 
 查询参数：`page`（回复分页）。
@@ -969,7 +1135,7 @@ GET /api/topics/{topicId}
 #### 3.7.3 创建话题
 
 ```
-POST /api/topics
+POST /api/v1/topics
 ```
 
 ```json
@@ -986,7 +1152,7 @@ POST /api/topics
 #### 3.7.4 回复话题
 
 ```
-POST /api/topics/{topicId}/replies
+POST /api/v1/topics/{topicId}/replies
 ```
 
 ```json
@@ -1004,7 +1170,7 @@ POST /api/topics/{topicId}/replies
 #### 3.7.5 话题操作（置顶 / 锁定 / 开关讨论）
 
 ```
-POST /api/topics/{topicId}/status
+POST /api/v1/topics/{topicId}/status
 ```
 
 权限：教师。
@@ -1026,7 +1192,7 @@ POST /api/topics/{topicId}/status
 #### 3.7.6 更新话题
 
 ```
-PUT /api/topics/{topicId}
+PUT /api/v1/topics/{topicId}
 ```
 
 权限：作者本人或教师。教师可编辑任意话题，作者仅可编辑自己的话题。
@@ -1036,8 +1202,8 @@ PUT /api/topics/{topicId}
 #### 3.7.7 删除话题 / 回复
 
 ```
-DELETE /api/topics/{topicId}
-DELETE /api/topics/replies/{replyId}
+DELETE /api/v1/topics/{topicId}
+DELETE /api/v1/topics/replies/{replyId}
 ```
 
 权限：作者本人或教师。软删除。
@@ -1049,26 +1215,33 @@ DELETE /api/topics/replies/{replyId}
 #### 3.8.1 获取备课区草稿列表
 
 ```
-GET /api/drafts
+GET /api/v1/drafts
 ```
 
-查询参数：`type=ASSIGNMENT`（可选筛选类型）。
+查询参数：`type=ASSIGNMENT`（可选筛选类型），`courseId=1`（可选筛选课程），`page`，`size`。
 
 ---
 
 #### 3.8.2 保存草稿
 
 ```
-POST /api/drafts
+POST /api/v1/drafts
 ```
 
 ```json
 {
+  "courseId": 1,
   "type": "ASSIGNMENT",
   "title": "期中作业草稿",
   "contentJson": "{\"title\":\"...\",\"content\":\"...\",\"deadline\":\"...\"}"
 }
 ```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `courseId` | long | 否 | 关联课程，可为空（后续发布时指定） |
+| `type` | enum | 是 | `ASSIGNMENT` / `MATERIAL` / `TOPIC` |
+| `title` | string | 否 | 草稿标题 |
 
 `contentJson` 为结构化 JSON 字符串，内容结构与对应实体创建接口一致。
 
@@ -1077,7 +1250,7 @@ POST /api/drafts
 #### 3.8.3 更新草稿
 
 ```
-PUT /api/drafts/{draftId}
+PUT /api/v1/drafts/{draftId}
 ```
 
 ---
@@ -1085,7 +1258,7 @@ PUT /api/drafts/{draftId}
 #### 3.8.4 发布草稿（一键导入）
 
 ```
-POST /api/drafts/{draftId}/publish
+POST /api/v1/drafts/{draftId}/publish
 ```
 
 ```json
@@ -1101,7 +1274,7 @@ POST /api/drafts/{draftId}/publish
 #### 3.8.5 删除草稿
 
 ```
-DELETE /api/drafts/{draftId}
+DELETE /api/v1/drafts/{draftId}
 ```
 
 ---
@@ -1111,7 +1284,7 @@ DELETE /api/drafts/{draftId}
 #### 3.9.1 配置 AI 批阅
 
 ```
-PUT /api/assignments/{assignmentId}/ai-grading-config
+PUT /api/v1/assignments/{assignmentId}/ai-grading-config
 ```
 
 权限：教师。
@@ -1143,7 +1316,7 @@ PUT /api/assignments/{assignmentId}/ai-grading-config
 #### 3.9.2 获取 AI 批阅配置
 
 ```
-GET /api/assignments/{assignmentId}/ai-grading-config
+GET /api/v1/assignments/{assignmentId}/ai-grading-config
 ```
 
 ---
@@ -1151,7 +1324,7 @@ GET /api/assignments/{assignmentId}/ai-grading-config
 #### 3.9.3 触发 AI 批阅（对单个提交）
 
 ```
-POST /api/submissions/{submissionId}/ai-grade
+POST /api/v1/submissions/{submissionId}/ai-grade
 ```
 
 **触发方式：**
@@ -1192,7 +1365,7 @@ POST /api/submissions/{submissionId}/ai-grade
 #### 3.9.4 批量 AI 批阅（某作业全部未批提交）
 
 ```
-POST /api/assignments/{assignmentId}/ai-grade-batch
+POST /api/v1/assignments/{assignmentId}/ai-grade-batch
 ```
 
 权限：教师。异步执行，返回任务 ID，前端轮询进度。
@@ -1215,7 +1388,7 @@ POST /api/assignments/{assignmentId}/ai-grade-batch
 #### 3.10.1 触发相似度分析
 
 ```
-POST /api/assignments/{assignmentId}/similarity/analyze
+POST /api/v1/assignments/{assignmentId}/similarity/analyze
 ```
 
 权限：教师。
@@ -1254,7 +1427,7 @@ POST /api/assignments/{assignmentId}/similarity/analyze
 #### 3.10.2 获取相似度报告列表
 
 ```
-GET /api/assignments/{assignmentId}/similarity/reports
+GET /api/v1/assignments/{assignmentId}/similarity/reports
 ```
 
 ---
@@ -1262,7 +1435,7 @@ GET /api/assignments/{assignmentId}/similarity/reports
 #### 3.10.3 获取相似度报告详情
 
 ```
-GET /api/similarity/reports/{reportId}
+GET /api/v1/similarity/reports/{reportId}
 ```
 
 **响应：**
@@ -1314,7 +1487,7 @@ GET /api/similarity/reports/{reportId}
 #### 3.11.1 创建新会话
 
 ```
-POST /api/courses/{courseId}/ai-chat/sessions
+POST /api/v1/courses/{courseId}/ai-chat/sessions
 ```
 
 ```json
@@ -1340,7 +1513,7 @@ POST /api/courses/{courseId}/ai-chat/sessions
 #### 3.11.2 获取会话列表
 
 ```
-GET /api/courses/{courseId}/ai-chat/sessions
+GET /api/v1/courses/{courseId}/ai-chat/sessions
 ```
 
 ```json
@@ -1363,7 +1536,7 @@ GET /api/courses/{courseId}/ai-chat/sessions
 #### 3.11.3 发送提问（RAG 检索 + LLM 回答）
 
 ```
-POST /api/courses/{courseId}/ai-chat
+POST /api/v1/courses/{courseId}/ai-chat
 ```
 
 ```json
@@ -1419,7 +1592,7 @@ data: {}
 #### 3.11.4 获取会话历史
 
 ```
-GET /api/courses/{courseId}/ai-chat/sessions/{sessionId}
+GET /api/v1/courses/{courseId}/ai-chat/sessions/{sessionId}
 ```
 
 查询参数：`page`, `size`。
@@ -1429,7 +1602,7 @@ GET /api/courses/{courseId}/ai-chat/sessions/{sessionId}
 #### 3.11.5 删除会话
 
 ```
-DELETE /api/courses/{courseId}/ai-chat/sessions/{sessionId}
+DELETE /api/v1/courses/{courseId}/ai-chat/sessions/{sessionId}
 ```
 
 ---
@@ -1439,7 +1612,7 @@ DELETE /api/courses/{courseId}/ai-chat/sessions/{sessionId}
 #### 3.12.1 获取通知列表
 
 ```
-GET /api/notifications
+GET /api/v1/notifications
 ```
 
 查询参数：`page`, `size`, `type`（可选，筛选类型）。
@@ -1449,7 +1622,7 @@ GET /api/notifications
 #### 3.12.2 获取未读通知数
 
 ```
-GET /api/notifications/unread-count
+GET /api/v1/notifications/unread-count
 ```
 
 ```json
@@ -1467,11 +1640,11 @@ GET /api/notifications/unread-count
 #### 3.12.3 标记已读
 
 ```
-PUT /api/notifications/{notificationId}/read
+PUT /api/v1/notifications/{notificationId}/read
 ```
 
 ```
-PUT /api/notifications/read-all        // 全部已读
+PUT /api/v1/notifications/read-all        // 全部已读
 ```
 
 ---
@@ -1479,7 +1652,7 @@ PUT /api/notifications/read-all        // 全部已读
 #### 3.12.4 删除通知
 
 ```
-DELETE /api/notifications/{notificationId}
+DELETE /api/v1/notifications/{notificationId}
 ```
 
 软删除。
@@ -1491,7 +1664,7 @@ DELETE /api/notifications/{notificationId}
 #### 3.13.1 上传文件
 
 ```
-POST /api/files/upload
+POST /api/v1/files/upload
 Content-Type: multipart/form-data
 
 file: <binary>
@@ -1523,16 +1696,106 @@ file: <binary>
 #### 3.13.2 预览 / 下载文件
 
 ```
-GET /api/files/{fileId}/download
+GET /api/v1/files/{fileId}/download
 ```
 
 生成临时签名 URL（有效期 30 分钟），302 重定向到 MinIO 直链。
 
 ```
-GET /api/files/{fileId}/preview
+GET /api/v1/files/{fileId}/preview
 ```
 
 对支持在线预览的格式（PDF、图片），返回内嵌预览 URL。
+
+---
+
+### 3.14 任务进度查询
+
+用于查询异步任务（批量 AI 批阅、相似度分析）的执行进度。
+
+#### 3.14.1 查询任务进度
+
+```
+GET /api/v1/tasks/{taskId}
+```
+
+**响应（执行中）：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "taskId": "batch-123-abc",
+    "type": "AI_GRADING_BATCH",
+    "status": "RUNNING",
+    "totalCount": 22,
+    "completedCount": 8,
+    "failedCount": 0,
+    "startedAt": "2026-06-20T18:30:00",
+    "estimatedRemainingSeconds": 45
+  }
+}
+```
+
+**响应（已完成）：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "taskId": "batch-123-abc",
+    "type": "AI_GRADING_BATCH",
+    "status": "COMPLETED",
+    "totalCount": 22,
+    "completedCount": 22,
+    "failedCount": 0,
+    "resultSummary": {
+      "avgScore": 78.5,
+      "gradedSubmissions": 22
+    },
+    "startedAt": "2026-06-20T18:30:00",
+    "completedAt": "2026-06-20T18:32:15"
+  }
+}
+```
+
+| status | 说明 |
+|--------|------|
+| `PENDING` | 排队等待执行 |
+| `RUNNING` | 正在执行 |
+| `COMPLETED` | 执行完成 |
+| `FAILED` | 执行失败 |
+
+**响应（失败）：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "taskId": "batch-123-abc",
+    "type": "SIMILARITY_ANALYSIS",
+    "status": "FAILED",
+    "errorMessage": "Embedding 服务调用超时，请稍后重试",
+    "startedAt": "2026-06-20T18:30:00",
+    "failedAt": "2026-06-20T18:31:30"
+  }
+}
+```
+
+**实现要点：**
+- 任务状态存储在 Redis（Key: `task:<taskId>`，TTL 1 小时）
+- 异步执行器（`@Async` + `ThreadPoolTaskExecutor`）定期更新 Redis 中的进度
+- 前端建议每 2 秒轮询一次，完成后停止轮询
+- `taskId` 由后端生成，格式：`{taskType}-{timestamp}-{random}`
+
+**错误场景：**
+
+| 场景 | code |
+|------|------|
+| 任务不存在或已过期 | 404 |
 
 ---
 
@@ -1541,7 +1804,7 @@ GET /api/files/{fileId}/preview
 为避免孤儿文件（上传了但未关联到任何实体），采用 **"先上传，后关联"** 模式：
 
 ```
-1. 前端调用 POST /api/files/upload → 获得 fileId
+1. 前端调用 POST /api/v1/files/upload → 获得 fileId
 2. 前端将 fileId 传给业务接口（如提交作业、创建资料）
 3. 业务接口建立文件与实体的关联关系
 4. 定期清理超过 24 小时未被关联的临时文件（定时任务）
@@ -1555,25 +1818,33 @@ GET /api/files/{fileId}/preview
 
 | 接口前缀 | 未登录 | STUDENT | TEACHER | CREATOR |
 |----------|--------|---------|---------|---------|
-| `/api/auth/**` | ✅ | ✅ | ✅ | ✅ |
-| `/api/user/**` | — | ✅（本人） | ✅（本人） | ✅（本人） |
-| `/api/courses` GET | — | ✅（已加入） | ✅（已加入） | ✅（已加入） |
-| `/api/courses` 创建 | — | — | ✅ | ✅ |
-| `/api/courses/*` 修改/删除 | — | — | ✅（同课程） | ✅（自己的课） |
-| `/api/assignments` 创建/修改 | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/assignments` 查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
-| `/api/submissions` 提交 | — | ✅（本人） | — | — |
-| `/api/submissions` 批阅 | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/materials` 管理 | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/materials` 查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
-| `/api/topics` 管理 | — | ✅（作者） | ✅（同课程） | ✅（同课程） |
-| `/api/drafts` | — | — | ✅（本人） | ✅（本人） |
-| `/api/ai-grading` | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/ai-chat` | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
-| `/api/similarity` | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/notifications` | — | ✅（本人） | ✅（本人） | ✅（本人） |
-| `/api/files` 上传 | — | ✅ | ✅ | ✅ |
-| `/api/files` 下载 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/auth/**` | ✅ | ✅ | ✅ | ✅ |
+| `/api/v1/user/**` | — | ✅（本人） | ✅（本人） | ✅（本人） |
+| `/api/v1/courses` GET | — | ✅（已加入） | ✅（已加入） | ✅（已加入） |
+| `/api/v1/courses` 创建 | — | — | ✅ | ✅ |
+| `/api/v1/courses/*` 修改/删除 | — | — | ✅（同课程） | ✅（自己的课） |
+| `/api/v1/courses/*/announcements` | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/courses/*/discussion` | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/assignments` 创建/修改 | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/assignments` 查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/submissions` 提交 | — | ✅（本人） | — | — |
+| `/api/v1/submissions` 批阅 | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/materials` 管理 | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/materials` 查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/topics` 管理 | — | ✅（作者） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/drafts` | — | — | ✅（本人） | ✅（本人） |
+| `/api/v1/ai-grading` | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/ai-chat` | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/similarity` | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/v1/notifications` | — | ✅（本人） | ✅（本人） | ✅（本人） |
+| `/api/v1/files` 上传 | — | ✅ | ✅ | ✅ |
+| `/api/v1/files` 下载 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/v1/tasks` | — | ✅（本人任务） | ✅（本人任务） | ✅（本人任务） |
+
+> **特殊说明：**
+> - `/api/v1/auth/forgot-password` 和 `/api/v1/auth/reset-password` 无需登录即可访问
+> - `/api/v1/auth/logout` 需要携带有效 Token
+> - `/api/v1/tasks/{taskId}` 仅允许任务创建者查询
 
 ---
 
@@ -1609,14 +1880,39 @@ LOCKED ──解锁──▶ NORMAL
 
 | 信道 | 用途 | 说明 |
 |------|------|------|
-| `GET /api/ai-chat/stream?sessionId=xxx` | AI 答疑流式响应 | SSE，逐 token 推送 |
+| `GET /api/v1/ai-chat/stream?sessionId=xxx` | AI 答疑流式响应 | SSE，逐 token 推送 |
 | `WS /ws/notifications` | 实时通知推送 | WebSocket，新通知到达时推送 `unreadCount` |
+
+### 7.1 WebSocket 认证
+
+浏览器 WebSocket API 不支持自定义请求头，因此通过 URL 查询参数传递 Token：
+
+```
+ws://localhost:8080/ws/notifications?token=eyJhbGciOiJIUzI1NiJ9...
+```
+
+**服务端握手流程：**
+1. 在 `beforeHandshake` 拦截器中从 `ServletRequestParameters` 提取 `token` 参数
+2. 验证 JWT 签名和有效期；同时检查 Redis 黑名单
+3. 验证通过 → 将 `userId` 存入 WebSocket session attributes，允许握手
+4. 验证失败 → 返回 401，拒绝连接
+
+**推送消息格式：**
+
+```json
+{
+  "type": "NOTIFICATION",
+  "payload": {
+    "notificationId": 123,
+    "title": "作业已批阅",
+    "unreadCount": 5
+  }
+}
+```
 
 ---
 
 ## 八、待定事项
 
-1. 国际化错误消息（i18n）
-2. API 版本控制策略（当前未加 `/v1` 前缀，后续可追加）
-3. 接口限流（Rate Limiting）
-4. 操作日志（Audit Log）
+1. 国际化错误消息（i18n）—— 前期硬编码中文，后续抽为 `messages_*.properties`
+2. 邮件发送 —— 使用 QQ 邮箱 SMTP（`smtp.qq.com`），Spring Mail 集成
