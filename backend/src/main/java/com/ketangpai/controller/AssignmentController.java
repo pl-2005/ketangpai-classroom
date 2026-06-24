@@ -1,6 +1,7 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
+import com.ketangpai.dto.assignment.AssignmentListResponse;
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.enums.AssignmentStatus;
 import com.ketangpai.security.CurrentUserId;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 import java.util.Map;
@@ -29,10 +33,12 @@ public class AssignmentController {
     private final AssignmentService assignmentService;
 
     @GetMapping("/courses/{courseId}/assignments")
-    public Result<List<Assignment>> listByCourse(@CurrentUserId Long userId,
-                                                  @PathVariable Long courseId,
-                                                  @RequestParam(required = false) String status) {
-        return Result.ok(assignmentService.listByCourse(courseId, userId, status));
+    public Result<Page<AssignmentListResponse>> listByCourse(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return Result.ok(assignmentService.listByCourse(courseId, userId, status, pageable));
     }
 
     @GetMapping("/assignments/{assignmentId}")

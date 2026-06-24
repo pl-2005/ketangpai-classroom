@@ -1,18 +1,23 @@
 package com.ketangpai.service;
 
+import com.ketangpai.dto.assignment.AssignmentListResponse;
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.entity.AssignmentAttachment;
+import com.ketangpai.model.entity.Submission;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.AssignmentStatus;
+import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.repository.AssignmentAttachmentRepository;
 import com.ketangpai.repository.AssignmentRepository;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.SubmissionRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 作业管理服务
@@ -34,12 +39,54 @@ public class AssignmentService extends BaseService {
         this.submissionRepository = submissionRepository;
     }
 
-    public List<Assignment> listByCourse(Long courseId, Long userId, String statusFilter) {
-        getMemberOrThrow(courseId, userId);
-        if (statusFilter != null) {
-            return assignmentRepository.findByCourseIdAndStatus(courseId, AssignmentStatus.valueOf(statusFilter));
+    @Transactional(readOnly = true)
+    public Page<AssignmentListResponse> listByCourse(Long courseId,
+                                                     Long userId,
+                                                     String statusFilter,
+                                                     Pageable pageable) {
+        var membership = getMemberOrThrow(courseId, userId);
+        AssignmentStatus requestedStatus = parseStatus(statusFilter);
+        Page<Assignment> assignments;
+
+        if (membership.getRole() == CourseMemberRole.STUDENT) {
+            if (requestedStatus == AssignmentStatus.DRAFT) {
+                throw new BusinessException(403, "学生不能查看作业草稿");
+            }
+            List<AssignmentStatus> visibleStatuses = requestedStatus == null
+                    ? List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED)
+                    : List.of(requestedStatus);
+            assignments = assignmentRepository.findVisiblePageByCourseId(
+                    courseId, visibleStatuses, pageable);
+        } else {
+            assignments = assignmentRepository.findPageByCourseId(
+                    courseId, requestedStatus, pageable);
         }
-        return assignmentRepository.findByCourseIdOrderByDeadlineAsc(courseId);
+
+        return assignments.map(assignment -> new AssignmentListResponse(
+                assignment.getId(),
+                assignment.getCourseId(),
+                assignment.getTitle(),
+                assignment.getStatus(),
+                assignment.getDeadline(),
+                assignment.getMaxScore(),
+                assignment.getAllowResubmit(),
+                membership.getRole() == CourseMemberRole.STUDENT
+                        ? submissionRepository.findByAssignmentIdAndStudentId(assignment.getId(), userId)
+                                .map(Submission::getStatus)
+                                .orElse(null)
+                        : null,
+                assignment.getCreateTime()));
+    }
+
+    private AssignmentStatus parseStatus(String statusFilter) {
+        if (statusFilter == null || statusFilter.isBlank()) {
+            return null;
+        }
+        try {
+            return AssignmentStatus.valueOf(statusFilter.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(400, "作业状态应为 DRAFT、PUBLISHED 或 CLOSED");
+        }
     }
 
     public Assignment getDetail(Long assignmentId, Long userId) {

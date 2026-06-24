@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 /**
  * 课程成员 Repository
@@ -85,7 +86,7 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
     /** 查询课程成员展示信息。 */
     @Query("""
             SELECT new com.ketangpai.dto.course.CourseMemberResponse(
-                cm.id, u.id, u.username, u.realName, u.avatarUrl, cm.role, cm.joinedAt)
+                cm.id, u.id, u.username, u.realName, u.avatarUrl, u.role, cm.role, cm.joinedAt)
             FROM CourseMember cm
             JOIN User u ON u.id = cm.userId
             WHERE cm.courseId = :courseId
@@ -100,4 +101,16 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
     Page<CourseMemberResponse> findMemberResponses(@Param("courseId") Long courseId,
                                                     @Param("role") CourseMemberRole role,
                                                     Pageable pageable);
+
+    @Query("""
+            SELECT cm
+            FROM CourseMember cm
+            JOIN Course c ON c.id = cm.courseId
+            WHERE cm.userId = :userId
+              AND cm.deleted = false
+              AND c.deleted = false
+              AND cm.courseId IN :courseIds
+            """)
+    List<CourseMember> findActiveForSorting(@Param("userId") Long userId,
+                                             @Param("courseIds") Collection<Long> courseIds);
 }

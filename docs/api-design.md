@@ -82,7 +82,7 @@ GET /api/xxx?page=0&size=20&sort=createTime,desc
 |------|--------|----------|
 | 账号认证 | 3 | `/api/auth` |
 | 用户管理 | 3 | `/api/user` |
-| 课程管理 | 7 | `/api/courses` |
+| 课程管理 | 11 | `/api/courses` |
 | 作业管理 | 6 | `/api/assignments` |
 | 提交管理 | 5 | `/api/submissions` |
 | 资料管理 | 6 | `/api/materials` |
@@ -387,8 +387,9 @@ GET /api/courses/{courseId}/members
         "userId": 2,
         "username": "lisi",
         "realName": "李四",
-        "avatarUrl": null,
-        "role": "STUDENT",
+                "avatarUrl": null,
+                "accountRole": "STUDENT",
+                "role": "STUDENT",
         "joinedAt": "2026-06-05T14:00:00"
       }
     ]
@@ -433,8 +434,80 @@ POST /api/courses/{courseId}/action
 | `ARCHIVE` | 所有人 | 仅归档自己（`isArchived = true`） |
 | `UNARCHIVE` | 所有人 | 恢复归档 |
 | `ARCHIVE_FOR_ALL` | CREATOR | 归档课程本身 + 所有人 |
+| `RESTORE_FOR_ALL` | CREATOR | 恢复课程本身，重新进入所有成员的正常/个人归档视图 |
 | `LEAVE` | STUDENT / TEACHER | 退课（`deleted = true`） |
-| `DELETE` | CREATOR | 软删除课程（`course.deleted = true`） |
+| `DELETE` | CREATOR | 将课程移入创建者回收站（`course.deleted = true`） |
+
+#### 3.3.8 设置课程共管角色
+
+```
+PUT /api/courses/{courseId}/members/{memberUserId}/role
+```
+
+权限：仅 `CREATOR`。目标用户必须已经加入课程；只有全局身份为教师的账号可以设置为 `TEACHER`。
+
+```json
+{
+  "role": "TEACHER"
+}
+```
+
+将 `role` 设置为 `STUDENT` 可撤销共管权限，不能修改课程创建者的角色。
+
+#### 3.3.9 更新课程卡片顺序
+
+```
+PUT /api/courses/order
+```
+
+```json
+{
+  "items": [
+    {
+      "courseId": 3,
+      "sortOrder": 0
+    },
+    {
+      "courseId": 1,
+      "sortOrder": 1
+    }
+  ]
+}
+```
+
+仅可调整当前用户已加入且未退课的课程。`courseId` 和 `sortOrder` 在单次请求中均不可重复。
+
+#### 3.3.10 获取课程回收站
+
+```
+GET /api/courses/trash?page=0&size=12
+```
+
+仅返回当前用户作为 `CREATOR` 删除的课程，包含删除时间 `deletedAt`。
+
+#### 3.3.11 回收站操作
+
+```
+POST /api/courses/{courseId}/trash/action
+```
+
+恢复课程：
+
+```json
+{
+  "action": "RESTORE"
+}
+```
+
+永久删除：
+
+```json
+{
+  "action": "PURGE"
+}
+```
+
+`PURGE` 会在同一事务中物理删除课程及其成员、作业、提交、资料、话题、通知和 AI 关联数据，操作不可撤销。
 
 ---
 
@@ -455,7 +528,9 @@ GET /api/courses/{courseId}/assignments
 | `size` | int | 20 | |
 
 **教师视角：** 返回所有状态的作业。  
-**学生视角：** 仅返回已发布的作业，附加本人的提交状态。
+**学生视角：** 仅返回 `PUBLISHED` / `CLOSED` 作业，附加本人的提交状态 `mySubmissionStatus`；请求 `DRAFT` 返回 403。
+
+列表使用分页 DTO 返回，字段包括 `id`、`courseId`、`title`、`status`、`deadline`、`maxScore`、`allowResubmit`、`mySubmissionStatus` 和 `createTime`，不直接暴露 JPA 实体。
 
 ---
 

@@ -34,8 +34,11 @@ class JwtUtilTest {
     void rejectsTamperedSignature() {
         JwtUtil jwtUtil = createJwtUtil(60_000, "ketangpai-classroom", "ketangpai-web");
         String token = jwtUtil.generateToken(1L, "STUDENT", "bcrypt-hash-v1");
-        String tampered = token.substring(0, token.length() - 1)
-                + (token.endsWith("A") ? "B" : "A");
+        String[] segments = token.split("\\.");
+        String signature = segments[2];
+        String tamperedSignature = (signature.startsWith("A") ? "B" : "A")
+                + signature.substring(1);
+        String tampered = segments[0] + "." + segments[1] + "." + tamperedSignature;
 
         assertThatThrownBy(() -> jwtUtil.parseToken(tampered))
                 .isInstanceOf(BusinessException.class)

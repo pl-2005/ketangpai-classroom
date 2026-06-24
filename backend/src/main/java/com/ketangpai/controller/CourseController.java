@@ -6,6 +6,9 @@ import com.ketangpai.dto.course.CourseCardResponse;
 import com.ketangpai.dto.course.CourseDetailResponse;
 import com.ketangpai.dto.course.CourseMemberResponse;
 import com.ketangpai.dto.course.CourseMembershipResponse;
+import com.ketangpai.dto.course.CourseSortRequest;
+import com.ketangpai.dto.course.CourseTrashActionRequest;
+import com.ketangpai.dto.course.CourseTrashResponse;
 import com.ketangpai.dto.course.CreateCourseRequest;
 import com.ketangpai.dto.course.JoinCourseRequest;
 import com.ketangpai.dto.course.UpdateCourseMemberRoleRequest;
@@ -49,6 +52,21 @@ public class CourseController {
             @RequestParam(defaultValue = "false") boolean archived,
             @PageableDefault(size = 12) Pageable pageable) {
         return Result.ok(courseService.listMyCourses(userId, archived, pageable));
+    }
+
+    @GetMapping("/trash")
+    public Result<Page<CourseTrashResponse>> listTrash(
+            @CurrentUserId Long userId,
+            @PageableDefault(size = 12) Pageable pageable) {
+        return Result.ok(courseService.listTrash(userId, pageable));
+    }
+
+    @PutMapping("/order")
+    public Result<Void> updateSortOrder(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody CourseSortRequest request) {
+        courseService.updateSortOrder(userId, request);
+        return Result.ok();
     }
 
     @PostMapping
@@ -110,6 +128,15 @@ public class CourseController {
             @PathVariable Long courseId,
             @Valid @RequestBody CourseActionRequest request) {
         courseService.performAction(courseId, userId, request.action());
+        return Result.ok();
+    }
+
+    @PostMapping("/{courseId}/trash/action")
+    public Result<Void> trashAction(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @Valid @RequestBody CourseTrashActionRequest request) {
+        courseService.performTrashAction(courseId, userId, request.action());
         return Result.ok();
     }
 

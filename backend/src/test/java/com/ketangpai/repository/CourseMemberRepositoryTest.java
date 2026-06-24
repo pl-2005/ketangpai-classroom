@@ -12,8 +12,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import jakarta.persistence.EntityManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(CoursePurgeRepository.class)
 class CourseMemberRepositoryTest {
 
     @Autowired
@@ -33,6 +38,15 @@ class CourseMemberRepositoryTest {
 
     @Autowired
     private CourseMemberRepository courseMemberRepository;
+
+    @Autowired
+    private CoursePurgeRepository coursePurgeRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     void globalArchiveMovesCourseFromActiveViewToArchivedView() {
@@ -69,8 +83,41 @@ class CourseMemberRepositoryTest {
                 .satisfies(member -> {
                     assertThat(member.userId()).isEqualTo(teacher.getId());
                     assertThat(member.username()).isEqualTo("teacher2");
+                    assertThat(member.accountRole()).isEqualTo(UserRole.TEACHER);
                     assertThat(member.role()).isEqualTo(CourseMemberRole.CREATOR);
                 });
+    }
+
+    @Test
+    void deletedCourseCanBeListedRestoredAndPermanentlyPurged() {
+        User teacher = saveUser("teacher3", UserRole.TEACHER);
+        Course course = saveCourse(teacher.getId(), CourseStatus.ACTIVE);
+        saveMember(course.getId(), teacher.getId(), CourseMemberRole.CREATOR, false);
+        jdbcTemplate.update("UPDATE course SET deleted = 1 WHERE id = ?", course.getId());
+        entityManager.clear();
+
+        assertThat(courseRepository.findDeletedByCreatorId(
+                teacher.getId(), PageRequest.of(0, 12)).getContent())
+                .extracting(Course::getId)
+                .containsExactly(course.getId());
+        assertThat(courseRepository.existsDeletedByIdAndCreatorId(
+                course.getId(), teacher.getId())).isTrue();
+
+        assertThat(courseRepository.restoreDeletedCourse(
+                course.getId(), teacher.getId())).isEqualTo(1);
+        entityManager.clear();
+        assertThat(courseRepository.findById(course.getId())).isPresent();
+
+        jdbcTemplate.update("UPDATE course SET deleted = 1 WHERE id = ?", course.getId());
+        coursePurgeRepository.purge(course.getId());
+
+        Integer courseCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course WHERE id = ?", Integer.class, course.getId());
+        Integer memberCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_member WHERE course_id = ?",
+                Integer.class, course.getId());
+        assertThat(courseCount).isZero();
+        assertThat(memberCount).isZero();
     }
 
     private User saveUser(String username, UserRole role) {
