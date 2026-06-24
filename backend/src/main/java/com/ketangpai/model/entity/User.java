@@ -1,5 +1,6 @@
 package com.ketangpai.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ketangpai.model.enums.UserRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,6 +31,7 @@ public class User extends BaseEntity {
     private String username;
 
     @Column(nullable = false, length = 255)
+    @JsonIgnore
     private String password;
 
     @Column(unique = true, length = 100)

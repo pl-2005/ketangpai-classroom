@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,7 +25,9 @@ import java.time.LocalDateTime;
  * 归档（isArchived）和退课（deleted）是两种不同的操作，语义独立。
  */
 @Entity
-@Table(name = "course_member")
+@Table(name = "course_member", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_course_user", columnNames = {"course_id", "user_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

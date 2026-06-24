@@ -1,11 +1,27 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
-import com.ketangpai.model.entity.Course;
+import com.ketangpai.dto.course.CourseActionRequest;
+import com.ketangpai.dto.course.CourseCardResponse;
+import com.ketangpai.dto.course.CourseDetailResponse;
+import com.ketangpai.dto.course.CourseMemberResponse;
+import com.ketangpai.dto.course.CourseMembershipResponse;
+import com.ketangpai.dto.course.CreateCourseRequest;
+import com.ketangpai.dto.course.JoinCourseRequest;
+import com.ketangpai.dto.course.UpdateCourseMemberRoleRequest;
+import com.ketangpai.dto.course.UpdateCourseRequest;
+import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.entity.CourseMember;
+import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.CourseService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,11 +31,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 /**
- * 课程管理 Controller
+ * 课程管理 Controller。
  */
 @RestController
 @RequestMapping("/api/courses")
@@ -29,49 +44,83 @@ public class CourseController {
     private final CourseService courseService;
 
     @GetMapping
-    public Result<List<CourseMember>> listMyCourses(@CurrentUserId Long userId,
-                                                     @RequestParam(defaultValue = "false") boolean archived) {
-        return Result.ok(courseService.listMyCourses(userId, archived));
+    public Result<Page<CourseCardResponse>> listMyCourses(
+            @CurrentUserId Long userId,
+            @RequestParam(defaultValue = "false") boolean archived,
+            @PageableDefault(size = 12) Pageable pageable) {
+        return Result.ok(courseService.listMyCourses(userId, archived, pageable));
     }
 
     @PostMapping
-    public Result<Course> create(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
-        return Result.ok(courseService.createCourse(userId,
-                body.get("name"), body.get("description"), body.get("coverUrl")));
+    public ResponseEntity<Result<CourseDetailResponse>> create(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody CreateCourseRequest request) {
+        CourseDetailResponse course = courseService.createCourse(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Result.ok("课程创建成功", course));
     }
 
     @PostMapping("/join")
-    public Result<CourseMember> join(@CurrentUserId Long userId, @RequestBody Map<String, String> body) {
-        return Result.ok(courseService.joinByCode(userId, body.get("courseCode")));
+    public Result<CourseMembershipResponse> join(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody JoinCourseRequest request) {
+        CourseMember member = courseService.joinByCode(userId, request.courseCode());
+        return Result.ok(new CourseMembershipResponse(
+                member.getCourseId(), member.getRole(), member.getIsArchived()));
     }
 
     @GetMapping("/{courseId}")
-    public Result<Course> getDetail(@CurrentUserId Long userId, @PathVariable Long courseId) {
+    public Result<CourseDetailResponse> getDetail(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId) {
         return Result.ok(courseService.getDetail(courseId, userId));
     }
 
     @GetMapping("/{courseId}/members")
-    public Result<List<CourseMember>> getMembers(@CurrentUserId Long userId,
-                                                  @PathVariable Long courseId,
-                                                  @RequestParam(required = false) String role) {
-        List<CourseMember> members = courseService.getMemberList(courseId, userId, role);
-        return Result.ok(members);
+    public Result<Page<CourseMemberResponse>> getMembers(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @RequestParam(required = false) String role,
+            @PageableDefault(size = 30) Pageable pageable) {
+        return Result.ok(courseService.getMemberList(
+                courseId, userId, parseRole(role), pageable));
     }
 
     @PutMapping("/{courseId}")
-    public Result<Course> update(@CurrentUserId Long userId,
-                                  @PathVariable Long courseId,
-                                  @RequestBody Map<String, String> body) {
-        return Result.ok(courseService.updateCourse(courseId, userId,
-                body.get("name"), body.get("description"), body.get("coverUrl")));
+    public Result<CourseDetailResponse> update(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @Valid @RequestBody UpdateCourseRequest request) {
+        return Result.ok(courseService.updateCourse(courseId, userId, request));
     }
 
-    @PostMapping("/{courseId}/action")
-    public Result<Void> action(@CurrentUserId Long userId,
-                                @PathVariable Long courseId,
-                                @RequestBody Map<String, String> body) {
-        courseService.performAction(courseId, userId, body.get("action"));
+    @PutMapping("/{courseId}/members/{memberUserId}/role")
+    public Result<Void> updateMemberRole(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @PathVariable Long memberUserId,
+            @Valid @RequestBody UpdateCourseMemberRoleRequest request) {
+        courseService.updateMemberRole(courseId, userId, memberUserId, request.role());
         return Result.ok();
     }
 
+    @PostMapping("/{courseId}/action")
+    public Result<Void> action(
+            @CurrentUserId Long userId,
+            @PathVariable Long courseId,
+            @Valid @RequestBody CourseActionRequest request) {
+        courseService.performAction(courseId, userId, request.action());
+        return Result.ok();
+    }
+
+    private CourseMemberRole parseRole(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+        try {
+            return CourseMemberRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(400, "成员角色应为 CREATOR、TEACHER 或 STUDENT");
+        }
+    }
 }

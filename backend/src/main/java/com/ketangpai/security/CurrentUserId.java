@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  *
  * <pre>{@code
  * @GetMapping("/profile")
- * public Result<User> profile(@CurrentUserId Long userId) {
+ * public Result<UserResponse> profile(@CurrentUserId Long userId) {
  *     ...
  * }
  * }</pre>

@@ -2,6 +2,11 @@ spring:
   application:
     name: ketangpai-classroom
 
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:backend/.env[.properties]
+
   profiles:
     active: dev
 
@@ -12,14 +17,21 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:ketangpai}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3307}/${DB_NAME:ketangpai}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 2s
+      timeout: 2s
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: true
     open-in-view: false
 
@@ -57,8 +69,18 @@ spring:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET:ketangpai-jwt-secret-key-2026-must-be-at-least-256-bits-long}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}  # 24 小时 (毫秒)
+  issuer: ${JWT_ISSUER:ketangpai-classroom}
+  audience: ${JWT_AUDIENCE:ketangpai-web}
+
+security:
+  bcrypt:
+    strength: ${BCRYPT_STRENGTH:12}
+  login:
+    max-attempts-per-identity: ${LOGIN_MAX_ATTEMPTS_PER_IDENTITY:5}
+    max-attempts-per-ip: ${LOGIN_MAX_ATTEMPTS_PER_IP:30}
+    window-millis: ${LOGIN_FAILURE_WINDOW_MILLIS:900000}
 
 # 服务端口
 server:
