@@ -3,6 +3,9 @@ package com.ketangpai.service;
 import com.ketangpai.dto.course.CourseCardResponse;
 import com.ketangpai.dto.course.CourseDetailResponse;
 import com.ketangpai.dto.course.CourseMemberResponse;
+import com.ketangpai.dto.course.CourseSortItem;
+import com.ketangpai.dto.course.CourseSortRequest;
+import com.ketangpai.dto.course.CourseTrashResponse;
 import com.ketangpai.dto.course.CreateCourseRequest;
 import com.ketangpai.dto.course.UpdateCourseRequest;
 import com.ketangpai.exception.BusinessException;
@@ -12,8 +15,10 @@ import com.ketangpai.model.entity.User;
 import com.ketangpai.model.enums.CourseAction;
 import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.CourseStatus;
+import com.ketangpai.model.enums.CourseTrashAction;
 import com.ketangpai.model.enums.UserRole;
 import com.ketangpai.repository.CourseMemberRepository;
+import com.ketangpai.repository.CoursePurgeRepository;
 import com.ketangpai.repository.CourseRepository;
 import com.ketangpai.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -22,7 +27,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 课程管理服务。
@@ -37,19 +48,35 @@ public class CourseService extends BaseService {
 
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final CoursePurgeRepository coursePurgeRepository;
 
     public CourseService(CourseMemberRepository courseMemberRepository,
                          CourseRepository courseRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         CoursePurgeRepository coursePurgeRepository) {
         super(courseMemberRepository);
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
+        this.coursePurgeRepository = coursePurgeRepository;
     }
 
     /** 获取当前用户的课程卡片，区分正常视图和归档视图。 */
     @Transactional(readOnly = true)
     public Page<CourseCardResponse> listMyCourses(Long userId, boolean archived, Pageable pageable) {
         return courseMemberRepository.findCourseCards(userId, archived, pageable);
+    }
+
+    /** 获取创建者回收站中的课程。 */
+    @Transactional(readOnly = true)
+    public Page<CourseTrashResponse> listTrash(Long userId, Pageable pageable) {
+        return courseRepository.findDeletedByCreatorId(userId, pageable)
+                .map(course -> new CourseTrashResponse(
+                        course.getId(),
+                        course.getName(),
+                        course.getCourseCode(),
+                        course.getCoverUrl(),
+                        course.getStatus(),
+                        course.getUpdateTime()));
     }
 
     /** 只有全局角色为教师的用户可以创建课程。 */
@@ -167,6 +194,46 @@ public class CourseService extends BaseService {
         return courseMemberRepository.save(target);
     }
 
+    /**
+     * 批量更新当前用户的课程卡片顺序。
+     * 请求允许只更新发生移动的课程，但课程 ID 与排序值都必须唯一。
+     */
+    @Transactional
+    public void updateSortOrder(Long userId, CourseSortRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            throw new BusinessException(400, "排序列表不能为空");
+        }
+        List<CourseSortItem> items = request.items();
+        Set<Long> courseIds = new HashSet<>();
+        Set<Integer> sortOrders = new HashSet<>();
+        for (CourseSortItem item : items) {
+            if (item == null || item.courseId() == null || item.sortOrder() == null) {
+                throw new BusinessException(400, "排序项不完整");
+            }
+            if (item.sortOrder() < 0) {
+                throw new BusinessException(400, "排序值不能小于0");
+            }
+            if (!courseIds.add(item.courseId())) {
+                throw new BusinessException(400, "排序列表包含重复课程");
+            }
+            if (!sortOrders.add(item.sortOrder())) {
+                throw new BusinessException(400, "排序值不能重复");
+            }
+        }
+
+        List<CourseMember> memberships = courseMemberRepository.findActiveForSorting(userId, courseIds);
+        if (memberships.size() != courseIds.size()) {
+            throw new BusinessException(403, "排序列表包含无权操作的课程");
+        }
+
+        Map<Long, CourseMember> membershipByCourseId = memberships.stream()
+                .collect(Collectors.toMap(CourseMember::getCourseId, Function.identity()));
+        for (CourseSortItem item : items) {
+            membershipByCourseId.get(item.courseId()).setSortOrder(item.sortOrder());
+        }
+        courseMemberRepository.saveAll(memberships);
+    }
+
     @Transactional
     public void performAction(Long courseId, Long userId, CourseAction action) {
         switch (action) {
@@ -176,6 +243,15 @@ public class CourseService extends BaseService {
             case RESTORE_FOR_ALL -> setCourseStatus(courseId, userId, CourseStatus.ACTIVE);
             case LEAVE -> leaveCourse(courseId, userId);
             case DELETE -> deleteCourse(courseId, userId);
+        }
+    }
+
+    /** 恢复或永久删除回收站课程。 */
+    @Transactional
+    public void performTrashAction(Long courseId, Long userId, CourseTrashAction action) {
+        switch (action) {
+            case RESTORE -> restoreCourse(courseId, userId);
+            case PURGE -> purgeCourse(courseId, userId);
         }
     }
 
@@ -223,6 +299,20 @@ public class CourseService extends BaseService {
         Course course = getCourseOrThrow(courseId);
         course.setDeleted(true);
         courseRepository.save(course);
+    }
+
+    private void restoreCourse(Long courseId, Long userId) {
+        int restored = courseRepository.restoreDeletedCourse(courseId, userId);
+        if (restored == 0) {
+            throw new BusinessException(404, "回收站中不存在该课程");
+        }
+    }
+
+    private void purgeCourse(Long courseId, Long userId) {
+        if (!courseRepository.existsDeletedByIdAndCreatorId(courseId, userId)) {
+            throw new BusinessException(404, "回收站中不存在该课程");
+        }
+        coursePurgeRepository.purge(courseId);
     }
 
     private Course getCourseOrThrow(Long courseId) {

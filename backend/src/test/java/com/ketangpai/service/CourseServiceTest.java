@@ -1,6 +1,9 @@
 package com.ketangpai.service;
 
 import com.ketangpai.dto.course.CourseCardResponse;
+import com.ketangpai.dto.course.CourseSortItem;
+import com.ketangpai.dto.course.CourseSortRequest;
+import com.ketangpai.dto.course.CourseTrashResponse;
 import com.ketangpai.dto.course.CreateCourseRequest;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.entity.Course;
@@ -9,8 +12,10 @@ import com.ketangpai.model.entity.User;
 import com.ketangpai.model.enums.CourseAction;
 import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.CourseStatus;
+import com.ketangpai.model.enums.CourseTrashAction;
 import com.ketangpai.model.enums.UserRole;
 import com.ketangpai.repository.CourseMemberRepository;
+import com.ketangpai.repository.CoursePurgeRepository;
 import com.ketangpai.repository.CourseRepository;
 import com.ketangpai.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -23,12 +28,14 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +49,9 @@ class CourseServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CoursePurgeRepository coursePurgeRepository;
 
     @Test
     void studentCannotCreateCourse() {
@@ -140,8 +150,109 @@ class CourseServiceTest {
         assertThat(service.listMyCourses(1L, false, pageable)).isSameAs(expected);
     }
 
+    @Test
+    void sortingUpdatesOnlyCurrentUsersActiveMemberships() {
+        CourseService service = service();
+        CourseMember first = member(10L, 1L, CourseMemberRole.CREATOR);
+        CourseMember second = member(20L, 1L, CourseMemberRole.STUDENT);
+        when(courseMemberRepository.findActiveForSorting(1L, Set.of(10L, 20L)))
+                .thenReturn(List.of(first, second));
+
+        service.updateSortOrder(1L, new CourseSortRequest(List.of(
+                new CourseSortItem(10L, 2),
+                new CourseSortItem(20L, 1))));
+
+        assertThat(first.getSortOrder()).isEqualTo(2);
+        assertThat(second.getSortOrder()).isEqualTo(1);
+        verify(courseMemberRepository).saveAll(List.of(first, second));
+    }
+
+    @Test
+    void sortingRejectsDuplicateCourseIds() {
+        CourseService service = service();
+
+        assertThatThrownBy(() -> service.updateSortOrder(1L, new CourseSortRequest(List.of(
+                new CourseSortItem(10L, 0),
+                new CourseSortItem(10L, 1)))))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(400);
+
+        verifyNoInteractions(coursePurgeRepository);
+    }
+
+    @Test
+    void sortingRejectsCoursesOutsideCurrentUsersMemberships() {
+        CourseService service = service();
+        when(courseMemberRepository.findActiveForSorting(1L, Set.of(10L, 20L)))
+                .thenReturn(List.of(member(10L, 1L, CourseMemberRole.CREATOR)));
+
+        assertThatThrownBy(() -> service.updateSortOrder(1L, new CourseSortRequest(List.of(
+                new CourseSortItem(10L, 0),
+                new CourseSortItem(20L, 1)))))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(403);
+
+        verify(courseMemberRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void trashListMapsDeletedCourses() {
+        CourseService service = service();
+        PageRequest pageable = PageRequest.of(0, 12);
+        Course deleted = course(10L, CourseStatus.ARCHIVED);
+        Page<Course> page = new PageImpl<>(List.of(deleted), pageable, 1);
+        when(courseRepository.findDeletedByCreatorId(1L, pageable)).thenReturn(page);
+
+        Page<CourseTrashResponse> result = service.listTrash(1L, pageable);
+
+        assertThat(result.getContent())
+                .singleElement()
+                .satisfies(course -> {
+                    assertThat(course.id()).isEqualTo(10L);
+                    assertThat(course.status()).isEqualTo(CourseStatus.ARCHIVED);
+                });
+    }
+
+    @Test
+    void creatorCanRestoreCourseFromTrash() {
+        CourseService service = service();
+        when(courseRepository.restoreDeletedCourse(10L, 1L)).thenReturn(1);
+
+        service.performTrashAction(10L, 1L, CourseTrashAction.RESTORE);
+
+        verify(courseRepository).restoreDeletedCourse(10L, 1L);
+        verifyNoInteractions(coursePurgeRepository);
+    }
+
+    @Test
+    void creatorCanPermanentlyDeleteCourseFromTrash() {
+        CourseService service = service();
+        when(courseRepository.existsDeletedByIdAndCreatorId(10L, 1L)).thenReturn(true);
+
+        service.performTrashAction(10L, 1L, CourseTrashAction.PURGE);
+
+        verify(coursePurgeRepository).purge(10L);
+    }
+
+    @Test
+    void permanentDeleteRejectsActiveOrForeignCourse() {
+        CourseService service = service();
+        when(courseRepository.existsDeletedByIdAndCreatorId(10L, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() ->
+                service.performTrashAction(10L, 1L, CourseTrashAction.PURGE))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(404);
+
+        verifyNoInteractions(coursePurgeRepository);
+    }
+
     private CourseService service() {
-        return new CourseService(courseMemberRepository, courseRepository, userRepository);
+        return new CourseService(
+                courseMemberRepository, courseRepository, userRepository, coursePurgeRepository);
     }
 
     private Course course(Long id, CourseStatus status) {

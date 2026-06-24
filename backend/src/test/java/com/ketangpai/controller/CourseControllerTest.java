@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,6 +92,36 @@ class CourseControllerTest {
     @Test
     void actionRejectsUnknownEnumAsBadRequest() throws Exception {
         mockMvc.perform(post("/api/courses/10/action")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "action": "UNKNOWN"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void sortingRejectsEmptyItemList() throws Exception {
+        mockMvc.perform(put("/api/courses/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "items": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void trashActionRejectsUnknownEnumAsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/courses/10/trash/action")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
