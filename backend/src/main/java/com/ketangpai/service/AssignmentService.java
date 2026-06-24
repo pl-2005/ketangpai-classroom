@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 作业管理服务
@@ -62,6 +65,9 @@ public class AssignmentService extends BaseService {
                     courseId, requestedStatus, pageable);
         }
 
+        Map<Long, Submission> submissionsByAssignmentId = loadStudentSubmissions(
+                assignments, membership.getRole(), userId);
+
         return assignments.map(assignment -> new AssignmentListResponse(
                 assignment.getId(),
                 assignment.getCourseId(),
@@ -71,11 +77,32 @@ public class AssignmentService extends BaseService {
                 assignment.getMaxScore(),
                 assignment.getAllowResubmit(),
                 membership.getRole() == CourseMemberRole.STUDENT
-                        ? submissionRepository.findByAssignmentIdAndStudentId(assignment.getId(), userId)
-                                .map(Submission::getStatus)
-                                .orElse(null)
+                        ? getSubmissionStatus(submissionsByAssignmentId, assignment.getId())
                         : null,
                 assignment.getCreateTime()));
+    }
+
+    private Map<Long, Submission> loadStudentSubmissions(Page<Assignment> assignments,
+                                                          CourseMemberRole role,
+                                                          Long userId) {
+        if (role != CourseMemberRole.STUDENT || assignments.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> assignmentIds = assignments.getContent().stream()
+                .map(Assignment::getId)
+                .toList();
+        return submissionRepository.findByStudentIdAndAssignmentIdIn(userId, assignmentIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        Submission::getAssignmentId,
+                        Function.identity()));
+    }
+
+    private com.ketangpai.model.enums.SubmissionStatus getSubmissionStatus(
+            Map<Long, Submission> submissionsByAssignmentId,
+            Long assignmentId) {
+        Submission submission = submissionsByAssignmentId.get(assignmentId);
+        return submission == null ? null : submission.getStatus();
     }
 
     private AssignmentStatus parseStatus(String statusFilter) {

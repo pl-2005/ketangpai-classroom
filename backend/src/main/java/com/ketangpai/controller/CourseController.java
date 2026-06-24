@@ -99,9 +99,10 @@ public class CourseController {
             @CurrentUserId Long userId,
             @PathVariable Long courseId,
             @RequestParam(required = false) String role,
+            @RequestParam(required = false) String keyword,
             @PageableDefault(size = 30) Pageable pageable) {
         return Result.ok(courseService.getMemberList(
-                courseId, userId, parseRole(role), pageable));
+                courseId, userId, parseRole(role), keyword, pageable));
     }
 
     @PutMapping("/{courseId}")

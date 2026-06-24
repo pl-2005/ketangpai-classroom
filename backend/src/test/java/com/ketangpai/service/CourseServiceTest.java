@@ -1,6 +1,8 @@
 package com.ketangpai.service;
 
 import com.ketangpai.dto.course.CourseCardResponse;
+import com.ketangpai.dto.course.CourseDetailResponse;
+import com.ketangpai.dto.course.CourseMemberResponse;
 import com.ketangpai.dto.course.CourseSortItem;
 import com.ketangpai.dto.course.CourseSortRequest;
 import com.ketangpai.dto.course.CourseTrashResponse;
@@ -100,6 +102,43 @@ class CourseServiceTest {
                 10L, 1L, 2L, CourseMemberRole.TEACHER);
 
         assertThat(updated.getRole()).isEqualTo(CourseMemberRole.TEACHER);
+    }
+
+    @Test
+    void courseDetailContainsCurrentRoleAndActiveMemberCount() {
+        CourseService service = service();
+        CourseMember teacher = member(10L, 1L, CourseMemberRole.TEACHER);
+        Course course = course(10L, CourseStatus.ACTIVE);
+        when(courseMemberRepository.findByCourseIdAndUserId(10L, 1L))
+                .thenReturn(Optional.of(teacher));
+        when(courseRepository.findById(10L)).thenReturn(Optional.of(course));
+        when(courseMemberRepository.countActiveMembersByCourseId(10L)).thenReturn(28L);
+
+        CourseDetailResponse result = service.getDetail(10L, 1L);
+
+        assertThat(result.currentUserRole()).isEqualTo(CourseMemberRole.TEACHER);
+        assertThat(result.memberCount()).isEqualTo(28L);
+        assertThat(result.name()).isEqualTo("软件工程");
+    }
+
+    @Test
+    void memberListNormalizesKeywordAndKeepsRoleAndPagination() {
+        CourseService service = service();
+        CourseMember current = member(10L, 1L, CourseMemberRole.CREATOR);
+        Course course = course(10L, CourseStatus.ACTIVE);
+        PageRequest pageable = PageRequest.of(1, 30);
+        Page<CourseMemberResponse> expected = Page.empty(pageable);
+        when(courseMemberRepository.findByCourseIdAndUserId(10L, 1L))
+                .thenReturn(Optional.of(current));
+        when(courseRepository.findById(10L)).thenReturn(Optional.of(course));
+        when(courseMemberRepository.findMemberResponses(
+                10L, CourseMemberRole.STUDENT, "李四", pageable))
+                .thenReturn(expected);
+
+        Page<CourseMemberResponse> result = service.getMemberList(
+                10L, 1L, CourseMemberRole.STUDENT, "  李四  ", pageable);
+
+        assertThat(result).isSameAs(expected);
     }
 
     @Test

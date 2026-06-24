@@ -1,9 +1,11 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.dto.course.CourseDetailResponse;
+import com.ketangpai.dto.course.CourseMemberResponse;
 import com.ketangpai.exception.GlobalExceptionHandler;
 import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.CourseStatus;
+import com.ketangpai.model.enums.UserRole;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.CourseService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -27,6 +31,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -87,6 +92,51 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.message").value("课程创建成功"))
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.currentUserRole").value("CREATOR"));
+    }
+
+    @Test
+    void detailReturnsCourseRoleAndMemberCount() throws Exception {
+        CourseDetailResponse response = new CourseDetailResponse(
+                10L, "软件工程", "课程简介", "SE2026", null,
+                CourseStatus.ACTIVE, 1L, CourseMemberRole.TEACHER,
+                35L, null, null);
+        when(courseService.getDetail(10L, 1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/courses/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(10))
+                .andExpect(jsonPath("$.data.currentUserRole").value("TEACHER"))
+                .andExpect(jsonPath("$.data.memberCount").value(35));
+    }
+
+    @Test
+    void memberListAcceptsRoleKeywordAndPagination() throws Exception {
+        CourseMemberResponse member = new CourseMemberResponse(
+                20L, 2L, "lisi", "李四", null,
+                UserRole.STUDENT, CourseMemberRole.STUDENT, null);
+        when(courseService.getMemberList(
+                eq(10L), eq(1L), eq(CourseMemberRole.STUDENT), eq("李"), any()))
+                .thenReturn(new PageImpl<>(
+                        java.util.List.of(member), PageRequest.of(0, 30), 1));
+
+        mockMvc.perform(get("/api/courses/10/members")
+                        .param("role", "student")
+                        .param("keyword", "李")
+                        .param("page", "0")
+                        .param("size", "30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].username").value("lisi"))
+                .andExpect(jsonPath("$.data.content[0].role").value("STUDENT"));
+    }
+
+    @Test
+    void memberListRejectsUnknownRole() throws Exception {
+        mockMvc.perform(get("/api/courses/10/members")
+                        .param("role", "owner"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        verifyNoInteractions(courseService);
     }
 
     @Test

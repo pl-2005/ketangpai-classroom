@@ -76,7 +76,7 @@ class CourseMemberRepositoryTest {
         saveMember(course.getId(), teacher.getId(), CourseMemberRole.CREATOR, false);
 
         Page<CourseMemberResponse> result = courseMemberRepository.findMemberResponses(
-                course.getId(), null, PageRequest.of(0, 30));
+                course.getId(), null, null, PageRequest.of(0, 30));
 
         assertThat(result.getContent())
                 .singleElement()
@@ -86,6 +86,28 @@ class CourseMemberRepositoryTest {
                     assertThat(member.accountRole()).isEqualTo(UserRole.TEACHER);
                     assertThat(member.role()).isEqualTo(CourseMemberRole.CREATOR);
                 });
+    }
+
+    @Test
+    void memberProjectionSupportsRoleAndNameFiltering() {
+        User creator = saveUser("course-owner", UserRole.TEACHER);
+        User teacher = saveUser("assistant", UserRole.TEACHER);
+        teacher.setRealName("王老师");
+        userRepository.saveAndFlush(teacher);
+        User student = saveUser("wang-student", UserRole.STUDENT);
+        student.setRealName("王同学");
+        userRepository.saveAndFlush(student);
+        Course course = saveCourse(creator.getId(), CourseStatus.ACTIVE);
+        saveMember(course.getId(), creator.getId(), CourseMemberRole.CREATOR, false);
+        saveMember(course.getId(), teacher.getId(), CourseMemberRole.TEACHER, false);
+        saveMember(course.getId(), student.getId(), CourseMemberRole.STUDENT, false);
+
+        Page<CourseMemberResponse> result = courseMemberRepository.findMemberResponses(
+                course.getId(), CourseMemberRole.TEACHER, "王", PageRequest.of(0, 30));
+
+        assertThat(result.getContent())
+                .extracting(CourseMemberResponse::userId)
+                .containsExactly(teacher.getId());
     }
 
     @Test

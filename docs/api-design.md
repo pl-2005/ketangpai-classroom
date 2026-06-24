@@ -371,6 +371,7 @@ GET /api/courses/{courseId}/members
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `role` | string | — | 筛选角色：`TEACHER` / `STUDENT` |
+| `keyword` | string | — | 按用户名或真实姓名模糊搜索 |
 | `page` | int | 0 | |
 | `size` | int | 30 | |
 

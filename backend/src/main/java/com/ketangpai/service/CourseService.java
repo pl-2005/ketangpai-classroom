@@ -142,10 +142,12 @@ public class CourseService extends BaseService {
     public Page<CourseMemberResponse> getMemberList(Long courseId,
                                                      Long userId,
                                                      CourseMemberRole roleFilter,
+                                                     String keyword,
                                                      Pageable pageable) {
         getMemberOrThrow(courseId, userId);
         getCourseOrThrow(courseId);
-        return courseMemberRepository.findMemberResponses(courseId, roleFilter, pageable);
+        return courseMemberRepository.findMemberResponses(
+                courseId, roleFilter, normalizeNullable(keyword), pageable);
     }
 
     @Transactional

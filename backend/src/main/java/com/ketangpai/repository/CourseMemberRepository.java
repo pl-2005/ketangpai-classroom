@@ -92,6 +92,9 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
             WHERE cm.courseId = :courseId
               AND cm.deleted = false
               AND (:role IS NULL OR cm.role = :role)
+              AND (:keyword IS NULL
+                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(COALESCE(u.realName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
             ORDER BY CASE cm.role
                 WHEN com.ketangpai.model.enums.CourseMemberRole.CREATOR THEN 0
                 WHEN com.ketangpai.model.enums.CourseMemberRole.TEACHER THEN 1
@@ -100,6 +103,7 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
             """)
     Page<CourseMemberResponse> findMemberResponses(@Param("courseId") Long courseId,
                                                     @Param("role") CourseMemberRole role,
+                                                    @Param("keyword") String keyword,
                                                     Pageable pageable);
 
     @Query("""

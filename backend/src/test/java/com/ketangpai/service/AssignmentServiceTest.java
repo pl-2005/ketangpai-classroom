@@ -53,10 +53,13 @@ class AssignmentServiceTest {
         when(assignmentRepository.findVisiblePageByCourseId(
                 10L, List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED), pageable))
                 .thenReturn(new PageImpl<>(List.of(assignment), pageable, 1));
-        when(submissionRepository.findByAssignmentIdAndStudentId(30L, 2L))
-                .thenReturn(Optional.of(Submission.builder()
+        Submission submission = Submission.builder()
+                .assignmentId(30L)
+                .studentId(2L)
                         .status(SubmissionStatus.SUBMITTED)
-                        .build()));
+                .build();
+        when(submissionRepository.findByStudentIdAndAssignmentIdIn(2L, List.of(30L)))
+                .thenReturn(List.of(submission));
 
         Page<AssignmentListResponse> result = service.listByCourse(10L, 2L, null, pageable);
 
@@ -66,6 +69,34 @@ class AssignmentServiceTest {
                     assertThat(item.id()).isEqualTo(30L);
                     assertThat(item.mySubmissionStatus()).isEqualTo(SubmissionStatus.SUBMITTED);
                 });
+        verify(submissionRepository).findByStudentIdAndAssignmentIdIn(2L, List.of(30L));
+    }
+
+    @Test
+    void studentAssignmentPageLoadsSubmissionStatusesInOneBatch() {
+        AssignmentService service = service();
+        PageRequest pageable = PageRequest.of(0, 20);
+        Assignment first = assignment(30L, AssignmentStatus.PUBLISHED);
+        Assignment second = assignment(31L, AssignmentStatus.CLOSED);
+        when(courseMemberRepository.findByCourseIdAndUserId(10L, 2L))
+                .thenReturn(Optional.of(member(CourseMemberRole.STUDENT)));
+        when(assignmentRepository.findVisiblePageByCourseId(
+                10L, List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED), pageable))
+                .thenReturn(new PageImpl<>(List.of(first, second), pageable, 2));
+        when(submissionRepository.findByStudentIdAndAssignmentIdIn(2L, List.of(30L, 31L)))
+                .thenReturn(List.of(Submission.builder()
+                        .assignmentId(31L)
+                        .studentId(2L)
+                        .status(SubmissionStatus.GRADED)
+                        .build()));
+
+        Page<AssignmentListResponse> result = service.listByCourse(10L, 2L, null, pageable);
+
+        assertThat(result.getContent())
+                .extracting(AssignmentListResponse::mySubmissionStatus)
+                .containsExactly(null, SubmissionStatus.GRADED);
+        verify(submissionRepository).findByStudentIdAndAssignmentIdIn(
+                2L, List.of(30L, 31L));
     }
 
     @Test

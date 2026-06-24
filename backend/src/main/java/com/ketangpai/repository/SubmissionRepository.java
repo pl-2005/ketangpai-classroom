@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 /**
  * 作业提交 Repository
@@ -17,6 +18,9 @@ import java.util.Optional;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     Optional<Submission> findByAssignmentIdAndStudentId(Long assignmentId, Long studentId);
+
+    /** 批量查询学生在一页作业中的提交状态，避免列表逐项查询。 */
+    List<Submission> findByStudentIdAndAssignmentIdIn(Long studentId, Collection<Long> assignmentIds);
 
     List<Submission> findByAssignmentId(Long assignmentId);
 
