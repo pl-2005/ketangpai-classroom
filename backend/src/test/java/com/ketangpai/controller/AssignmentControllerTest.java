@@ -54,7 +54,7 @@ class AssignmentControllerTest {
                 eq(10L), eq(1L), eq("PUBLISHED"), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(assignment), pageable, 1));
 
-        mockMvc.perform(get("/api/courses/10/assignments")
+        mockMvc.perform(get("/api/v1/courses/10/assignments")
                         .param("status", "PUBLISHED")
                         .param("page", "0")
                         .param("size", "20"))

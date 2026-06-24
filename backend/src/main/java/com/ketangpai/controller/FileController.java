@@ -18,7 +18,7 @@ import java.util.Map;
  * 文件上传 Controller
  */
 @RestController
-@RequestMapping("/api/files")
+@RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
 public class FileController {
 

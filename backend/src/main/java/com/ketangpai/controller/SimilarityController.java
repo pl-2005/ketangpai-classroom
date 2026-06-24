@@ -20,7 +20,7 @@ import java.util.Map;
  * 相似度分析 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class SimilarityController {
 

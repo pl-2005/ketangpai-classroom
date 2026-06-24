@@ -20,7 +20,7 @@ import java.util.Map;
  * AI 答疑 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class ChatController {
 

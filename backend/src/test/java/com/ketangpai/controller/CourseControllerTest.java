@@ -58,7 +58,7 @@ class CourseControllerTest {
 
     @Test
     void createRejectsBlankCourseNameBeforeCallingService() throws Exception {
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/courses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -80,7 +80,7 @@ class CourseControllerTest {
                 1L, null, null);
         when(courseService.createCourse(eq(1L), any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/courses")
+        mockMvc.perform(post("/api/v1/courses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -102,7 +102,7 @@ class CourseControllerTest {
                 35L, null, null);
         when(courseService.getDetail(10L, 1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/courses/10"))
+        mockMvc.perform(get("/api/v1/courses/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.currentUserRole").value("TEACHER"))
@@ -119,7 +119,7 @@ class CourseControllerTest {
                 .thenReturn(new PageImpl<>(
                         java.util.List.of(member), PageRequest.of(0, 30), 1));
 
-        mockMvc.perform(get("/api/courses/10/members")
+        mockMvc.perform(get("/api/v1/courses/10/members")
                         .param("role", "student")
                         .param("keyword", "李")
                         .param("page", "0")
@@ -131,7 +131,7 @@ class CourseControllerTest {
 
     @Test
     void memberListRejectsUnknownRole() throws Exception {
-        mockMvc.perform(get("/api/courses/10/members")
+        mockMvc.perform(get("/api/v1/courses/10/members")
                         .param("role", "owner"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
@@ -141,7 +141,7 @@ class CourseControllerTest {
 
     @Test
     void actionRejectsUnknownEnumAsBadRequest() throws Exception {
-        mockMvc.perform(post("/api/courses/10/action")
+        mockMvc.perform(post("/api/v1/courses/10/action")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -156,7 +156,7 @@ class CourseControllerTest {
 
     @Test
     void sortingRejectsEmptyItemList() throws Exception {
-        mockMvc.perform(put("/api/courses/order")
+        mockMvc.perform(put("/api/v1/courses/order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -171,7 +171,7 @@ class CourseControllerTest {
 
     @Test
     void trashActionRejectsUnknownEnumAsBadRequest() throws Exception {
-        mockMvc.perform(post("/api/courses/10/trash/action")
+        mockMvc.perform(post("/api/v1/courses/10/trash/action")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

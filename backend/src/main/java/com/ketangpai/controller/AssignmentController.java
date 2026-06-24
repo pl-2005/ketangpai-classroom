@@ -26,7 +26,7 @@ import java.util.Map;
  * 作业管理 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class AssignmentController {
 

@@ -3,7 +3,7 @@ import { clearSession, getToken } from '@/auth/session'
 import type { ApiResult } from '@/types/api'
 
 export const http = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   timeout: 15_000,
 })
 

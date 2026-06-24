@@ -23,7 +23,7 @@ import java.util.Map;
  * 话题讨论 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class TopicController {
 

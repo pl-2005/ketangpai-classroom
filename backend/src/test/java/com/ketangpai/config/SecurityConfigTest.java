@@ -46,20 +46,20 @@ class SecurityConfigTest {
 
     @Test
     void currentUserEndpointRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/auth/me"))
+        mockMvc.perform(get("/api/v1/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
     }
 
     @Test
     void onlyPostMethodOfRegisterEndpointIsPublic() throws Exception {
-        mockMvc.perform(get("/api/auth/register"))
+        mockMvc.perform(get("/api/v1/auth/register"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void registerPostReachesMvcValidationWithoutAuthentication() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())

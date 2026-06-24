@@ -23,7 +23,7 @@ import java.util.Map;
  * 备课区 Controller（教师专属）
  */
 @RestController
-@RequestMapping("/api/drafts")
+@RequestMapping("/api/v1/drafts")
 @RequiredArgsConstructor
 public class LessonDraftController {
 

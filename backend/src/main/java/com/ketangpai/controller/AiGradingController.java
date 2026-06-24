@@ -21,7 +21,7 @@ import java.util.Map;
  * AI 批阅 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class AiGradingController {
 

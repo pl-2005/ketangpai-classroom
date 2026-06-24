@@ -40,7 +40,7 @@ import java.util.Locale;
  * 课程管理 Controller。
  */
 @RestController
-@RequestMapping("/api/courses")
+@RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
 public class CourseController {
 

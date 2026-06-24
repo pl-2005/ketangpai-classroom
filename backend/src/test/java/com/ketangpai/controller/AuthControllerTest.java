@@ -51,7 +51,7 @@ class AuthControllerTest {
         when(authService.register(any(RegisterRequest.class)))
                 .thenReturn(new RegisterResponse(1L, "zhangsan", UserRole.STUDENT));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -70,7 +70,7 @@ class AuthControllerTest {
 
     @Test
     void registerRejectsWeakPasswordBeforeCallingService() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -87,7 +87,7 @@ class AuthControllerTest {
 
     @Test
     void registerRejectsUnknownRoleAsBadRequest() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -105,7 +105,7 @@ class AuthControllerTest {
         when(authService.login(any(LoginRequest.class), anyString()))
                 .thenThrow(new BusinessException(401, "用户名或密码错误"));
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -125,7 +125,7 @@ class AuthControllerTest {
         when(authService.login(any(LoginRequest.class), anyString()))
                 .thenReturn(new LoginResponse("jwt-token", user));
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 账号认证 Controller
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

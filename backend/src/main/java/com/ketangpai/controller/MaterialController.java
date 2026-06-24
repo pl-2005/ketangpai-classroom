@@ -23,7 +23,7 @@ import java.util.Map;
  * 资料管理 Controller
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class MaterialController {
 
