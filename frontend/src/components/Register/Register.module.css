@@ -1,0 +1,169 @@
+.registerContainer {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.leftSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.logo {
+  margin-bottom: 40px;
+}
+
+.logoText {
+  font-size: 36px;
+  font-weight: bold;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoText::before {
+  content: 'AI';
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 28px;
+}
+
+.illustration {
+  max-width: 1000px;
+  width: 100%;
+  max-height: 600px;
+}
+
+.illustrationImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.rightSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.registerBox {
+  background: #fff;
+  border-radius: 20px;
+  padding: 50px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.form {
+  margin-top: 0;
+}
+
+.input {
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formItem {
+  margin-bottom: 20px;
+}
+
+.identitySection {
+  margin-bottom: 20px;
+}
+
+.sectionLabel {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 12px;
+}
+
+.radioBtn {
+  flex: 1;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+}
+
+.radioBtn:hover {
+  border-color: #3b82f6;
+}
+
+.radioBtn.ant-radio-button-wrapper-checked {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.radioIcon {
+  font-size: 18px;
+}
+
+.registerBtn {
+  height: 48px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+}
+
+.registerBtn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.loginLink {
+  text-align: center;
+  margin-top: 24px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.loginLink a {
+  color: #3b82f6;
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.loginLink a:hover {
+  color: #2563eb;
+}
