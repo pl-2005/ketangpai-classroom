@@ -1,0 +1,79 @@
+.courseCard {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.courseCard:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+.cardCover {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.coverContent {
+  text-align: center;
+  color: #fff;
+}
+
+.courseName {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.courseCode {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.addCode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.addCodeIcon {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.addCodeText {
+  font-size: 12px;
+}
+
+.cardContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.memberInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memberCount {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.courseActions {
+  display: flex;
+  gap: 8px;
+}

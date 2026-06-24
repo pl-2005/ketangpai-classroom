@@ -1,0 +1,116 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 24px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logoText {
+  font-size: 20px;
+  font-weight: bold;
+  color: #3b82f6;
+}
+
+.logoText::before {
+  content: 'AI';
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.breadcrumb {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.content {
+  flex: 1;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+.courseSection {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.courseCount {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+}
+
+.emptyTip {
+  margin-top: 16px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.footer {
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.footer p {
+  margin: 0;
+}
