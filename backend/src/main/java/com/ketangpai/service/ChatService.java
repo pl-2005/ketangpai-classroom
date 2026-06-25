@@ -80,15 +80,30 @@ public class ChatService extends BaseService {
         return chatMessageRepository.save(assistantMsg);
     }
 
-    public Page<ChatMessage> getHistory(Long sessionId, Long userId, Pageable pageable) {
-        // TODO: 校验 userId 是该会话的参与者
-        return chatMessageRepository.findBySessionIdOrderByCreateTimeDesc(String.valueOf(sessionId), pageable);
+    /** 获取指定会话的对话历史（分页） */
+    public Page<ChatMessage> getHistory(Long courseId, String sessionId, Long userId, Pageable pageable) {
+        getMemberOrThrow(courseId, userId);
+        // 校验用户是该会话的参与者
+        if (!isSessionParticipant(sessionId, userId)) {
+            throw new BusinessException(403, "无权访问该会话");
+        }
+        return chatMessageRepository.findBySessionIdOrderByCreateTimeDesc(sessionId, pageable);
     }
 
     @Transactional
     public void deleteSession(String sessionId, Long userId) {
-        // TODO: 校验 userId 是该会话的所有者
+        // 校验 userId 是该会话的参与者（有至少一条消息）
+        if (!isSessionParticipant(sessionId, userId)) {
+            throw new BusinessException(403, "无权删除该会话");
+        }
         chatMessageRepository.deleteBySessionId(sessionId);
+    }
+
+    /** 检查用户是否参与了指定会话 */
+    private boolean isSessionParticipant(String sessionId, Long userId) {
+        Page<ChatMessage> page = chatMessageRepository
+                .findBySessionIdOrderByCreateTimeDesc(sessionId, Pageable.ofSize(1));
+        return page.getContent().stream().anyMatch(msg -> msg.getUserId().equals(userId));
     }
 
     /** 占位：后续接入 Spring AI 实现真正的 RAG 回答 */

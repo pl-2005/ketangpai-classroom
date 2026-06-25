@@ -1,9 +1,13 @@
 package com.ketangpai.service;
 
+import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.entity.Submission;
 import com.ketangpai.model.entity.SubmissionFile;
 import com.ketangpai.exception.BusinessException;
+import com.ketangpai.model.enums.AssignmentStatus;
+import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.SubmissionStatus;
+import com.ketangpai.repository.AssignmentRepository;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.SubmissionFileRepository;
 import com.ketangpai.repository.SubmissionRepository;
@@ -21,23 +25,43 @@ public class SubmissionService extends BaseService {
 
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository submissionFileRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final FileService fileService;
 
     public SubmissionService(CourseMemberRepository courseMemberRepository,
                              SubmissionRepository submissionRepository,
-                             SubmissionFileRepository submissionFileRepository) {
+                             SubmissionFileRepository submissionFileRepository,
+                             AssignmentRepository assignmentRepository,
+                             FileService fileService) {
         super(courseMemberRepository);
         this.submissionRepository = submissionRepository;
         this.submissionFileRepository = submissionFileRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.fileService = fileService;
     }
 
     @Transactional
     public Submission submit(Long assignmentId, Long studentId, String content, List<Long> fileIds) {
-        // 通过作业找到课程，验证学生身份
+        // 1. 校验作业存在且已发布
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new BusinessException(404, "作业不存在"));
+        if (assignment.getStatus() != AssignmentStatus.PUBLISHED) {
+            throw new BusinessException(400, "作业尚未发布，无法提交");
+        }
+
+        // 2. 校验学生是课程成员
+        getMemberOrThrow(assignment.getCourseId(), studentId);
+
+        // 3. 校验截止时间
+        if (assignment.getDeadline() != null && LocalDateTime.now().isAfter(assignment.getDeadline())) {
+            throw new BusinessException(400, "已超过作业截止时间");
+        }
+
+        // 4. 创建或更新提交记录
         Submission submission = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, studentId)
                 .map(existing -> {
                     // 已有提交记录
-                    if (existing.getStatus() == SubmissionStatus.GRADED
-                            && !isResubmitAllowed(assignmentId)) {
+                    if (!assignment.getAllowResubmit()) {
                         throw new BusinessException(409, "该作业不允许重复提交");
                     }
                     // 版本覆盖
@@ -48,6 +72,7 @@ public class SubmissionService extends BaseService {
                     // 清除旧批阅结果
                     existing.setScore(null);
                     existing.setTeacherComment(null);
+                    existing.setGradedAt(null);
                     return existing;
                 })
                 .orElseGet(() -> Submission.builder()
@@ -61,16 +86,29 @@ public class SubmissionService extends BaseService {
 
         submission = submissionRepository.save(submission);
 
-        // 关联提交文件
+        // 5. 关联提交文件
         if (fileIds != null && !fileIds.isEmpty()) {
+            // 删除旧文件关联
             submissionFileRepository.deleteBySubmissionId(submission.getId());
-            // TODO: 关联临时文件到提交
+            // 关联新文件 — 从 TempFile 创建 SubmissionFile 记录
+            for (Long fileId : fileIds) {
+                fileService.associateFile(fileId);
+                // TODO: 根据 TempFile 信息创建 SubmissionFile 记录，或直接从 TempFile 读取
+            }
         }
+
+        // TODO: 提交成功后，异步触发 AI 批阅（如果已配置）
+        // TODO: 清除旧的 AI 批阅结果
 
         return submission;
     }
 
-    public List<Submission> listByAssignment(Long assignmentId, Long teacherId, String statusFilter) {
+    /** 获取某作业的全部提交（仅教师可查看） */
+    public List<Submission> listByAssignment(Long assignmentId, Long userId, String statusFilter) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new BusinessException(404, "作业不存在"));
+        checkTeacher(assignment.getCourseId(), userId);
+
         if (statusFilter != null) {
             SubmissionStatus status = SubmissionStatus.valueOf(statusFilter);
             return submissionRepository.findByAssignmentId(assignmentId).stream()
@@ -80,9 +118,22 @@ public class SubmissionService extends BaseService {
         return submissionRepository.findByAssignmentId(assignmentId);
     }
 
+    /** 获取单个提交详情（教师或提交者本人可查看） */
     public Submission getDetail(Long submissionId, Long userId) {
-        return submissionRepository.findById(submissionId)
+        Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new BusinessException(404, "提交不存在"));
+
+        // 提交者本人可查看自己的提交
+        if (submission.getStudentId().equals(userId)) {
+            return submission;
+        }
+
+        // 教师可查看课程内任意提交
+        Assignment assignment = assignmentRepository.findById(submission.getAssignmentId())
+                .orElseThrow(() -> new BusinessException(404, "作业不存在"));
+        checkTeacher(assignment.getCourseId(), userId);
+
+        return submission;
     }
 
     public List<SubmissionFile> getFiles(Long submissionId) {
@@ -93,7 +144,9 @@ public class SubmissionService extends BaseService {
     public Submission grade(Long submissionId, Long teacherId, Integer score, String comment) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new BusinessException(404, "提交不存在"));
-        checkTeacher(getAssignmentCourseId(submission.getAssignmentId()), teacherId);
+
+        Long courseId = getAssignmentCourseId(submission.getAssignmentId());
+        checkTeacher(courseId, teacherId);
 
         submission.setScore(score);
         submission.setTeacherComment(comment);
@@ -109,7 +162,9 @@ public class SubmissionService extends BaseService {
     public Submission returnSubmission(Long submissionId, Long teacherId, String reason) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new BusinessException(404, "提交不存在"));
-        checkTeacher(getAssignmentCourseId(submission.getAssignmentId()), teacherId);
+
+        Long courseId = getAssignmentCourseId(submission.getAssignmentId());
+        checkTeacher(courseId, teacherId);
 
         if (submission.getStatus() != SubmissionStatus.SUBMITTED) {
             throw new BusinessException(400, "仅已提交状态的作业可退回");
@@ -124,13 +179,10 @@ public class SubmissionService extends BaseService {
         return submission;
     }
 
-    private boolean isResubmitAllowed(Long assignmentId) {
-        // TODO: 查询 assignment.allowResubmit
-        return true;
-    }
-
+    /** 通过作业 ID 查询所属课程 ID */
     private Long getAssignmentCourseId(Long assignmentId) {
-        // TODO: 通过 AssignmentRepository 查询 courseId
-        return 0L;
+        return assignmentRepository.findById(assignmentId)
+                .map(Assignment::getCourseId)
+                .orElseThrow(() -> new BusinessException(404, "作业不存在"));
     }
 }

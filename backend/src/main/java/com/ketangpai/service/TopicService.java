@@ -72,6 +72,15 @@ public class TopicService extends BaseService {
         }
         getMemberOrThrow(topic.getCourseId(), authorId);
 
+        // 校验 parentId 属于当前话题，防止跨话题伪造楼中楼
+        if (parentId != null) {
+            TopicReply parent = replyRepository.findById(parentId)
+                    .orElseThrow(() -> new BusinessException(404, "父回复不存在"));
+            if (!parent.getTopicId().equals(topicId)) {
+                throw new BusinessException(400, "父回复不属于当前话题");
+            }
+        }
+
         TopicReply reply = TopicReply.builder()
                 .topicId(topicId)
                 .authorId(authorId)
@@ -85,6 +94,7 @@ public class TopicService extends BaseService {
         // 自动维护物化路径
         String path;
         if (parentId != null) {
+            // parent 已在上面校验时获取
             TopicReply parent = replyRepository.findById(parentId).orElse(null);
             String parentPath = (parent != null && parent.getPath() != null) ? parent.getPath() : "/" + parentId;
             path = parentPath + "/" + reply.getId();

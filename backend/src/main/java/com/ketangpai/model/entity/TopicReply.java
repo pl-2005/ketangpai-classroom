@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import java.time.LocalDateTime;
 
 /**
@@ -22,6 +24,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "topic_reply")
+@SQLRestriction("deleted = 0")
 @Getter
 @Setter
 @NoArgsConstructor

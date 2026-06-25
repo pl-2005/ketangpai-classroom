@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,7 +24,9 @@ import java.time.LocalDateTime;
  * 不继承 BaseEntity：无 updateTime 字段，submittedAt / gradedAt 为业务时间。
  */
 @Entity
-@Table(name = "submission")
+@Table(name = "submission", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_assignment_student", columnNames = {"assignment_id", "student_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -51,10 +54,10 @@ public class AssignmentController {
                 (String) body.get("title"),
                 (String) body.get("content"),
                 body.get("courseId") instanceof Integer ? ((Integer) body.get("courseId")).longValue() : (Long) body.get("courseId"),
-                null, // deadline TODO
+                parseDateTime(body.get("deadline")),
                 body.get("maxScore") != null ? ((Number) body.get("maxScore")).intValue() : null,
                 body.get("allowResubmit") instanceof Boolean ? (Boolean) body.get("allowResubmit") : null,
-                null // attachmentIds TODO
+                parseLongList(body.get("attachmentIds"))
         ));
     }
 
@@ -65,7 +68,7 @@ public class AssignmentController {
         return Result.ok(assignmentService.update(assignmentId, userId,
                 (String) body.get("title"),
                 (String) body.get("content"),
-                null, // deadline TODO
+                parseDateTime(body.get("deadline")),
                 body.get("maxScore") != null ? ((Number) body.get("maxScore")).intValue() : null,
                 body.get("allowResubmit") instanceof Boolean ? (Boolean) body.get("allowResubmit") : null
         ));
@@ -87,5 +90,35 @@ public class AssignmentController {
         List<Long> studentIds = (List<Long>) body.get("studentIds");
         long count = assignmentService.urge(assignmentId, userId, studentIds);
         return Result.ok(Map.of("urgedCount", count));
+    }
+
+    // ==================== 参数解析辅助方法 ====================
+
+    private static LocalDateTime parseDateTime(Object value) {
+        if (value == null) return null;
+        String text = value.toString().trim();
+        if (text.isEmpty()) return null;
+        try {
+            return LocalDateTime.parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (DateTimeParseException e) {
+            // 尝试 "yyyy-MM-dd HH:mm:ss"
+            try {
+                return LocalDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } catch (DateTimeParseException e2) {
+                return null;
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Long> parseLongList(Object value) {
+        if (value == null) return null;
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .map(item -> item instanceof Number ? ((Number) item).longValue() : null)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        }
+        return null;
     }
 }

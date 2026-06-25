@@ -5,6 +5,8 @@ import com.ketangpai.model.entity.ChatMessage;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,9 +51,9 @@ public class ChatController {
     @GetMapping("/courses/{courseId}/ai-chat/sessions/{sessionId}")
     public Result<?> getHistory(@CurrentUserId Long userId,
                                  @PathVariable Long courseId,
-                                 @PathVariable String sessionId) {
-        // TODO: 添加分页支持
-        return Result.ok(chatService.listSessions(courseId, userId));
+                                 @PathVariable String sessionId,
+                                 @PageableDefault(size = 50) Pageable pageable) {
+        return Result.ok(chatService.getHistory(courseId, sessionId, userId, pageable));
     }
 
     @DeleteMapping("/courses/{courseId}/ai-chat/sessions/{sessionId}")

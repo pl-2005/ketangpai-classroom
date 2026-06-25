@@ -16,6 +16,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import java.time.LocalDateTime;
 
 /**
@@ -28,6 +30,7 @@ import java.time.LocalDateTime;
 @Table(name = "course_member", uniqueConstraints = {
         @UniqueConstraint(name = "uk_course_user", columnNames = {"course_id", "user_id"})
 })
+@SQLRestriction("deleted = 0")
 @Getter
 @Setter
 @NoArgsConstructor

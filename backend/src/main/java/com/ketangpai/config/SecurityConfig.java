@@ -64,6 +64,11 @@ public class SecurityConfig implements WebMvcConfigurer {
         return new BCryptPasswordEncoder(strength);
     }
 
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(currentUserIdResolver);
