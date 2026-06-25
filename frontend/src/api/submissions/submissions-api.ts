@@ -1,5 +1,6 @@
 import request from '../../utils/request';
 import type { PageResponse } from '../../utils/request';
+import type { AiGradingResult } from '../ai-grading/types';
 
 // ============ 类型定义 ============
 export type SubmissionStatus = 'SUBMITTED' | 'GRADED' | 'RETURNED';
@@ -9,21 +10,6 @@ export interface SubmissionFile {
   fileName: string;
   fileUrl: string;
   fileSize: number;
-}
-
-export interface AiGradingDetail {
-  dimension: string;
-  score: number;
-  maxScore: number;
-  comment: string;
-}
-
-export interface AiGradingResult {
-  score: number;
-  comment: string;
-  suggestions: string;
-  detail: AiGradingDetail[];
-  gradedAt: string;
 }
 
 export interface Submission {

@@ -2,6 +2,7 @@ package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
 import com.ketangpai.model.entity.Submission;
+import com.ketangpai.repository.AiGradingResultRepository;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +28,7 @@ import java.util.Map;
 public class SubmissionController {
 
     private final SubmissionService submissionService;
+    private final AiGradingResultRepository aiGradingResultRepository;
 
     @PostMapping("/assignments/{assignmentId}/submit")
     public Result<Submission> submit(@CurrentUserId Long userId,
@@ -47,10 +50,11 @@ public class SubmissionController {
     @GetMapping("/submissions/{submissionId}")
     public Result<Map<String, Object>> getDetail(@CurrentUserId Long userId,
                                                   @PathVariable Long submissionId) {
-        return Result.ok(Map.of(
-                "submission", submissionService.getDetail(submissionId, userId),
-                "files", submissionService.getFiles(submissionId)
-        ));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("submission", submissionService.getDetail(submissionId, userId));
+        result.put("files", submissionService.getFiles(submissionId));
+        result.put("aiGradingResult", aiGradingResultRepository.findBySubmissionId(submissionId).orElse(null));
+        return Result.ok(result);
     }
 
     @PutMapping("/submissions/{submissionId}/grade")

@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Typography, Space, Descriptions, Tag, Input, Upload,
-  message, Spin, Empty, Divider, List, Table, Modal, Popconfirm,
+  message, Spin, Empty, Divider, Table, Modal, Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined, UploadOutlined, SendOutlined,
   CloseCircleOutlined, EditOutlined, FileTextOutlined,
-  ReloadOutlined, EyeOutlined,
+  ReloadOutlined, EyeOutlined, RobotOutlined, SettingOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { assignmentsApi, submissionsApi, filesApi, type Assignment, type Submission } from '../../api';
+import { assignmentsApi, submissionsApi, filesApi, aiGradingApi, type Assignment, type Submission, type AiGradingConfig } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
+import AiGradingConfigPanel from '../../components/AiGrading/AiGradingConfigPanel';
+import BatchProgressModal from '../../components/AiGrading/BatchProgressModal';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -28,6 +30,11 @@ export default function AssignmentDetail() {
   const [mySubmission, setMySubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // AI grading
+  const [aiConfig, setAiConfig] = useState<AiGradingConfig | null>(null);
+  const [configPanelOpen, setConfigPanelOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+
   // Submit state
   const [content, setContent] = useState('');
   const [fileList, setUploadedFiles] = useState<number[]>([]);
@@ -40,33 +47,17 @@ export default function AssignmentDetail() {
   const [editContent, setEditContent] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  const isTeacher = true; // We'll determine from the course context
   const [teacherChecked, setTeacherChecked] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [assData, subData] = await Promise.all([
+      const [assData] = await Promise.all([
         assignmentsApi.getAssignmentDetail(numAssignmentId) as unknown as any,
-        isTeacherOrNot() ? submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[]
-          : Promise.resolve(null),
       ]);
 
       const ass = assData?.assignment || assData;
       setAssignment(ass);
-      if (subData) setSubmissions(subData as Submission[] || []);
-
-      // Student: check my submission
-      if (!isTeacherOrNot() && user) {
-        try {
-          // We need to find the student's own submission
-          const allSubs = await submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[];
-          const mine = (allSubs || []).find((s: Submission) => s.studentId === user.id);
-          setMySubmission(mine || null);
-        } catch {
-          // Student may not have permission to list all subs - try to check by other means
-        }
-      }
     } catch {
       message.error('获取作业信息失败');
     } finally {
@@ -74,22 +65,14 @@ export default function AssignmentDetail() {
     }
   };
 
-  // Simple heuristic: if the route includes viewing submissions, we're likely a teacher
-  // Actually we should check from user role or course info
-  const isTeacherOrNot = () => {
-    // For now, try both — if listing submissions succeeds, we're teacher
-    return teacherChecked;
-  };
-
   useEffect(() => {
-    // First check if we can list submissions (teacher)
+    // Check role
     const checkRole = async () => {
       try {
         const data = await submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[];
         if (Array.isArray(data)) {
           setTeacherChecked(true);
           setSubmissions(data);
-          // Also check if one of these is my submission
           if (user) {
             const mine = data.find((s: Submission) => s.studentId === user.id);
             if (mine) setMySubmission(mine);
@@ -106,6 +89,15 @@ export default function AssignmentDetail() {
     fetchData();
   }, [assignmentId, teacherChecked]);
 
+  // Fetch AI config in teacher view
+  useEffect(() => {
+    if (teacherChecked) {
+      aiGradingApi.getAiGradingConfig(numAssignmentId).then((data: any) => {
+        if (data?.assignmentId) setAiConfig(data);
+      }).catch(() => {});
+    }
+  }, [teacherChecked]);
+
   // ====== Submit ======
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -120,7 +112,7 @@ export default function AssignmentDetail() {
     } finally {
       setUploading(false);
     }
-    return false; // Prevent default upload behavior
+    return false;
   };
 
   const handleSubmit = async () => {
@@ -220,13 +212,11 @@ export default function AssignmentDetail() {
             </Space>
           }
           extra={
-            isTeacherOrNot() ? (
-              <Space>
-                {assignment.status === 'PUBLISHED' && (
-                  <Button icon={<EditOutlined />} onClick={handleEditOpen}>修正</Button>
-                )}
-              </Space>
-            ) : null
+            <Space>
+              {teacherChecked && assignment.status === 'PUBLISHED' && (
+                <Button icon={<EditOutlined />} onClick={handleEditOpen}>修正</Button>
+              )}
+            </Space>
           }
           column={2}
           size="small"
@@ -249,8 +239,38 @@ export default function AssignmentDetail() {
         )}
       </Card>
 
+      {/* Teacher Toolbar: AI Grading */}
+      {teacherChecked && (
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button
+              icon={<SettingOutlined />}
+              onClick={() => setConfigPanelOpen(true)}
+            >
+              AI 批阅设置
+            </Button>
+            {aiConfig?.enabled && (
+              <Button
+                type="primary"
+                icon={<RobotOutlined />}
+                onClick={() => setBatchModalOpen(true)}
+              >
+                AI 批量批阅
+              </Button>
+            )}
+            {aiConfig ? (
+              <Tag color={aiConfig.enabled ? 'blue' : 'default'}>
+                AI: {aiConfig.enabled ? '已启用' : '已禁用'}
+              </Tag>
+            ) : (
+              <Tag color="default">AI: 未配置</Tag>
+            )}
+          </Space>
+        </div>
+      )}
+
       {/* Teacher View: Submissions List */}
-      {isTeacherOrNot() && (
+      {teacherChecked && (
         <Card title={<span><FileTextOutlined /> 提交列表 ({submissions.length})</span>}>
           {submissions.length === 0 ? (
             <Empty description="暂无学生提交" />
@@ -297,10 +317,8 @@ export default function AssignmentDetail() {
         </Card>
       )}
 
-      {/* Student View: Submit */}
-
       {/* Student View: My Submission */}
-      {!isTeacherOrNot() && assignment.status === 'PUBLISHED' && (
+      {!teacherChecked && assignment.status === 'PUBLISHED' && (
         <>
           {mySubmission ? (
             <Card title="我的提交" style={{ marginBottom: 16 }}>
@@ -316,8 +334,25 @@ export default function AssignmentDetail() {
                       <Text strong>{mySubmission.score} / {assignment.maxScore}</Text>
                     </Descriptions.Item>
                     {mySubmission.aiGradingResult && (
-                      <Descriptions.Item label="AI 评语">
-                        {mySubmission.aiGradingResult.comment}
+                      <>
+                        <Descriptions.Item label="AI 预评分">
+                          <Tag color="blue">{mySubmission.aiGradingResult.score} 分</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="AI 评语" span={2}>
+                          <div style={{ whiteSpace: 'pre-wrap' }}>{mySubmission.aiGradingResult.comment}</div>
+                        </Descriptions.Item>
+                        {mySubmission.aiGradingResult.suggestions && (
+                          <Descriptions.Item label="AI 建议" span={2}>
+                            <div style={{ whiteSpace: 'pre-wrap', background: '#fff7e6', padding: 8, borderRadius: 4 }}>
+                              {mySubmission.aiGradingResult.suggestions}
+                            </div>
+                          </Descriptions.Item>
+                        )}
+                      </>
+                    )}
+                    {mySubmission.teacherComment && (
+                      <Descriptions.Item label="教师评语" span={2}>
+                        {mySubmission.teacherComment}
                       </Descriptions.Item>
                     )}
                   </>
@@ -387,8 +422,8 @@ export default function AssignmentDetail() {
         </>
       )}
 
-      {/* Student: Already submitted — allow resubmit */}
-      {!isTeacherOrNot() && mySubmission && assignment.status === 'PUBLISHED' && assignment.allowResubmit && (
+      {/* Student: Resubmit */}
+      {!teacherChecked && mySubmission && assignment.status === 'PUBLISHED' && assignment.allowResubmit && (
         <Card title="重新提交" style={{ marginBottom: 16 }}>
           <TextArea
             rows={6}
@@ -419,6 +454,23 @@ export default function AssignmentDetail() {
           </Button>
         </Card>
       )}
+
+      {/* AI Grading Config Panel */}
+      <AiGradingConfigPanel
+        assignmentId={numAssignmentId}
+        visible={configPanelOpen}
+        onClose={() => { setConfigPanelOpen(false); }}
+      />
+
+      {/* Batch Progress Modal */}
+      <BatchProgressModal
+        assignmentId={numAssignmentId}
+        visible={batchModalOpen}
+        onClose={(completed) => {
+          setBatchModalOpen(false);
+          if (completed) fetchData();
+        }}
+      />
 
       {/* Edit Assignment Modal */}
       <Modal

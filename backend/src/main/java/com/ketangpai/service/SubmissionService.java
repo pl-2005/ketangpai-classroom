@@ -32,6 +32,7 @@ public class SubmissionService extends BaseService {
     private final TempFileRepository tempFileRepository;
     private final FileService fileService;
     private final NotificationService notificationService;
+    private final AiGradingService aiGradingService;
 
     public SubmissionService(CourseMemberRepository courseMemberRepository,
                              SubmissionRepository submissionRepository,
@@ -39,7 +40,8 @@ public class SubmissionService extends BaseService {
                              AssignmentRepository assignmentRepository,
                              TempFileRepository tempFileRepository,
                              FileService fileService,
-                             NotificationService notificationService) {
+                             NotificationService notificationService,
+                             AiGradingService aiGradingService) {
         super(courseMemberRepository);
         this.submissionRepository = submissionRepository;
         this.submissionFileRepository = submissionFileRepository;
@@ -47,6 +49,7 @@ public class SubmissionService extends BaseService {
         this.tempFileRepository = tempFileRepository;
         this.fileService = fileService;
         this.notificationService = notificationService;
+        this.aiGradingService = aiGradingService;
     }
 
     @Transactional
@@ -118,7 +121,8 @@ public class SubmissionService extends BaseService {
             }
         }
 
-        // TODO: 提交成功后，异步触发 AI 批阅（如果已配置）
+        // 提交成功后，异步触发 AI 批阅（如果已配置且启用）
+        aiGradingService.gradeSubmissionAsync(submission.getId(), submission.getAssignmentId());
 
         return submission;
     }

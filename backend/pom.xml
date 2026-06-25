@@ -79,6 +79,20 @@
             <version>4.12.0</version>
         </dependency>
 
+        <!-- Apache POI: Word (.docx) 文本提取 -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+
+        <!-- Apache PDFBox: PDF 文本提取 -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+
         <!-- Spring AI - Commons (基础领域模型：Message, Prompt, Media 等) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>

@@ -299,7 +299,8 @@ CREATE TABLE IF NOT EXISTS `notification` (
     `course_id` BIGINT DEFAULT NULL COMMENT '关联课程',
     `type` ENUM(
         'ASSIGNMENT_PUBLISHED','ASSIGNMENT_URGED','ASSIGNMENT_GRADED',
-        'ASSIGNMENT_RETURNED','TOPIC_REPLY','COURSE_JOINED','COURSE_ANNOUNCEMENT'
+        'ASSIGNMENT_RETURNED','TOPIC_REPLY','COURSE_JOINED','COURSE_ANNOUNCEMENT',
+        'AI_GRADED'
     ) NOT NULL COMMENT '通知类型',
     `title` VARCHAR(200) NOT NULL COMMENT '通知标题',
     `content` TEXT DEFAULT NULL COMMENT '通知正文',
@@ -310,6 +311,24 @@ CREATE TABLE IF NOT EXISTS `notification` (
     PRIMARY KEY (`id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_user_read` (`user_id`, `is_read`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- 21. AI 批阅批量任务表
+-- =============================================
+CREATE TABLE IF NOT EXISTS `grading_batch_task` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `assignment_id` BIGINT NOT NULL COMMENT '作业 ID',
+    `teacher_id` BIGINT NOT NULL COMMENT '触发教师',
+    `status` ENUM('PENDING','IN_PROGRESS','COMPLETED','PARTIALLY_FAILED','FAILED') NOT NULL DEFAULT 'PENDING',
+    `total_count` INT NOT NULL DEFAULT 0,
+    `completed_count` INT NOT NULL DEFAULT 0,
+    `failed_count` INT NOT NULL DEFAULT 0,
+    `error_message` TEXT DEFAULT NULL,
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_assignment_id` (`assignment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================

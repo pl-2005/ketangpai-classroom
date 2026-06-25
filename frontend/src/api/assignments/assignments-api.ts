@@ -1,29 +1,15 @@
 import request from '../../utils/request';
 import type { PageResponse } from '../../utils/request';
+import type { AiGradingConfig } from '../ai-grading/types';
 
 // ============ 类型定义 ============
 export type AssignmentStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
-export type GradingStyle = 'BALANCED' | 'STRICT' | 'LENIENT';
 
 export interface FileAttachment {
   id: number;
   fileName: string;
   fileUrl: string;
   fileSize: number;
-}
-
-export interface AiGradingConfig {
-  enabled: boolean;
-  promptTemplate?: string;
-  rubric?: RubricItem[];
-  gradingStyle?: GradingStyle;
-}
-
-export interface RubricItem {
-  dimension: string;
-  weight: number;
-  maxScore: number;
-  criteria: string;
 }
 
 export interface AssignmentStats {

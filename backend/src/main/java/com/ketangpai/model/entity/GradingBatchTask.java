@@ -1,6 +1,6 @@
 package com.ketangpai.model.entity;
 
-import com.ketangpai.model.enums.NotificationType;
+import com.ketangpai.model.enums.GradingBatchTaskStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,53 +15,54 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import org.hibernate.annotations.SQLRestriction;
-
 import java.time.LocalDateTime;
 
 /**
- * 通知表
+ * AI 批阅批量任务表 — 记录每次批量批阅的进度与结果。
  */
 @Entity
-@Table(name = "notification")
-@SQLRestriction("deleted = 0")
+@Table(name = "grading_batch_task")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Notification {
+public class GradingBatchTask {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long assignmentId;
 
-    private Long courseId;
+    @Column(nullable = false)
+    private Long teacherId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "ENUM('ASSIGNMENT_PUBLISHED','ASSIGNMENT_URGED','ASSIGNMENT_GRADED','ASSIGNMENT_RETURNED','TOPIC_REPLY','COURSE_JOINED','COURSE_ANNOUNCEMENT','AI_GRADED')")
-    private NotificationType type;
+    @Column(nullable = false, columnDefinition = "ENUM('PENDING','IN_PROGRESS','COMPLETED','PARTIALLY_FAILED','FAILED')")
+    @Builder.Default
+    private GradingBatchTaskStatus status = GradingBatchTaskStatus.PENDING;
 
-    @Column(nullable = false, length = 200)
-    private String title;
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer totalCount = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer completedCount = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer failedCount = 0;
 
     @Column(columnDefinition = "TEXT")
-    private String content;
-
-    private Long relatedId;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean isRead = false;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean deleted = false;
+    private String errorMessage;
 
     @Column
     @Builder.Default
     private LocalDateTime createTime = LocalDateTime.now();
+
+    @Column
+    private LocalDateTime updateTime;
 }

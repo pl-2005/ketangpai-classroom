@@ -4,6 +4,7 @@ import com.ketangpai.config.MinioConfig;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.entity.TempFile;
 import com.ketangpai.repository.TempFileRepository;
+import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.Http;
 import io.minio.MinioClient;
@@ -146,6 +147,30 @@ public class FileService {
             throw new BusinessException(400, "文件路径为空");
         }
         return generatePresignedUrl(objectPath);
+    }
+
+    // ==================== 原始字节下载 ====================
+
+    /**
+     * 从 MinIO 下载文件的原始字节（不通过预签名 URL）。
+     * 用于服务端文本提取等场景。
+     */
+    public byte[] downloadBytes(String objectPath) {
+        if (objectPath == null || objectPath.isBlank()) {
+            throw new BusinessException(400, "文件路径为空");
+        }
+        try (var stream = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(minioConfig.getBucket())
+                        .object(objectPath)
+                        .build())) {
+            return stream.readAllBytes();
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("MinIO 下载失败: path={}", objectPath, e);
+            throw new BusinessException(500, "文件下载失败");
+        }
     }
 
     // ==================== 预览 ====================

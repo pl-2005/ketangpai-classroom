@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Descriptions, Tag, Input, InputNumber,
+  Card, Button, Descriptions, Tag, Input, InputNumber, Table,
   message, Spin, Empty, Typography, Space, Divider, Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined, CheckOutlined, RollbackOutlined,
-  FileTextOutlined,
+  FileTextOutlined, RobotOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { submissionsApi, type Submission } from '../../api';
+import { submissionsApi, aiGradingApi, type Submission, type AiGradingResult, type DimensionScore } from '../../api';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -24,6 +24,8 @@ export default function Grading() {
   const navigate = useNavigate();
 
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [aiResult, setAiResult] = useState<AiGradingResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState('');
@@ -38,6 +40,10 @@ export default function Grading() {
       setSubmission(sub);
       setScore(sub.score || null);
       setComment(sub.teacherComment || '');
+      // AI grading result from response
+      if (data?.aiGradingResult) {
+        setAiResult(parseAiResult(data.aiGradingResult));
+      }
     } catch {
       message.error('获取提交信息失败');
     } finally {
@@ -48,6 +54,38 @@ export default function Grading() {
   useEffect(() => {
     fetchSubmission();
   }, [submissionId]);
+
+  /** Parse AI result — normalize detailJson/dimensions */
+  const parseAiResult = (raw: any): AiGradingResult => {
+    let dimensions: DimensionScore[] | undefined;
+    if (raw.detailJson) {
+      try { dimensions = JSON.parse(raw.detailJson); } catch {/* keep undefined */}
+    }
+    return {
+      ...raw,
+      dimensions: dimensions || raw.dimensions,
+    };
+  };
+
+  const handleTriggerAi = async () => {
+    setAiLoading(true);
+    try {
+      const result: any = await aiGradingApi.triggerAiGrading(numSubmissionId);
+      setAiResult(parseAiResult(result));
+      message.success('AI 批阅完成');
+    } catch {
+      message.error('AI 批阅失败');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleUseAiResult = () => {
+    if (!aiResult) return;
+    if (aiResult.score != null) setScore(aiResult.score);
+    if (aiResult.comment) setComment(aiResult.comment);
+    message.success('已填入 AI 评分结果，可修改后确认');
+  };
 
   const handleGrade = async () => {
     if (score == null) {
@@ -103,6 +141,13 @@ export default function Grading() {
     return <Empty description="提交不存在" />;
   }
 
+  const dimensionColumns = [
+    { title: '维度', dataIndex: 'dimension', key: 'dimension' },
+    { title: '得分', dataIndex: 'score', key: 'score', render: (v: number) => <Text strong>{v}</Text> },
+    { title: '满分', dataIndex: 'maxScore', key: 'maxScore' },
+    { title: '评语', dataIndex: 'comment', key: 'comment' },
+  ];
+
   return (
     <div>
       <Button
@@ -116,7 +161,7 @@ export default function Grading() {
 
       <Title level={4}>批阅提交</Title>
 
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {/* Submission Detail */}
         <Card
           title={
@@ -164,7 +209,111 @@ export default function Grading() {
           )}
         </Card>
 
-        {/* Grading Panel */}
+        {/* AI Grading Result Card */}
+        <Card
+          title={
+            <Space>
+              <RobotOutlined />
+              AI 预批阅结果
+              {aiResult?.gradedAt && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {dayjs(aiResult.gradedAt).format('MM-DD HH:mm')}
+                </Text>
+              )}
+            </Space>
+          }
+          style={{ width: 400 }}
+          extra={
+            aiResult?.score != null ? (
+              <Tag color="blue">AI 评分: {aiResult.score}</Tag>
+            ) : null
+          }
+        >
+          {aiResult ? (
+            <>
+              {/* AI Score */}
+              {aiResult.score != null && (
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 36, fontWeight: 700, color: '#1677ff' }}>
+                    {aiResult.score}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 16 }}> 分</Text>
+                </div>
+              )}
+
+              {/* AI Comment */}
+              <div style={{ marginBottom: 12 }}>
+                <Text strong>AI 评语</Text>
+                <div style={{
+                  marginTop: 4, padding: 12, background: '#f6f8fa', borderRadius: 8,
+                  whiteSpace: 'pre-wrap', fontSize: 13,
+                }}>
+                  {aiResult.comment}
+                </div>
+              </div>
+
+              {/* AI Suggestions */}
+              {aiResult.suggestions && (
+                <div style={{ marginBottom: 12 }}>
+                  <Text strong>改进建议</Text>
+                  <div style={{
+                    marginTop: 4, padding: 12, background: '#fff7e6', borderRadius: 8,
+                    whiteSpace: 'pre-wrap', fontSize: 13,
+                  }}>
+                    {aiResult.suggestions}
+                  </div>
+                </div>
+              )}
+
+              {/* Dimension Detail */}
+              {aiResult.dimensions && aiResult.dimensions.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <Text strong>各维度评分</Text>
+                  <Table
+                    dataSource={aiResult.dimensions}
+                    columns={dimensionColumns}
+                    rowKey="dimension"
+                    pagination={false}
+                    size="small"
+                    style={{ marginTop: 4 }}
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+                <Button block icon={<CheckOutlined />} onClick={handleUseAiResult}>
+                  使用 AI 评分
+                </Button>
+                <Button
+                  block
+                  icon={<RobotOutlined />}
+                  loading={aiLoading}
+                  onClick={handleTriggerAi}
+                >
+                  重新 AI 批阅
+                </Button>
+              </Space>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <RobotOutlined style={{ fontSize: 32, color: '#d9d9d9' }} />
+              <Text type="secondary" style={{ display: 'block', marginTop: 12, marginBottom: 16 }}>
+                尚未进行 AI 批阅
+              </Text>
+              <Button
+                type="primary"
+                icon={<RobotOutlined />}
+                loading={aiLoading}
+                onClick={handleTriggerAi}
+              >
+                AI 预批阅
+              </Button>
+            </div>
+          )}
+        </Card>
+
+        {/* Manual Grading Panel */}
         <Card title="评分" style={{ width: 360 }}>
           {submission.status === 'GRADED' ? (
             <div>

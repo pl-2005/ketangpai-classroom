@@ -1,41 +1,5 @@
 import request from '../../utils/request';
-
-// ============ 类型定义 ============
-export type GradingStyle = 'BALANCED' | 'STRICT' | 'LENIENT';
-
-export interface RubricItem {
-  dimension: string;
-  weight: number;
-  maxScore: number;
-  criteria: string;
-}
-
-export interface AiGradingConfig {
-  enabled: boolean;
-  promptTemplate?: string;
-  rubric: RubricItem[];
-  gradingStyle: GradingStyle;
-}
-
-export interface AiGradingDetail {
-  dimension: string;
-  score: number;
-  maxScore: number;
-  comment: string;
-}
-
-export interface AiGradingResult {
-  score: number;
-  comment: string;
-  suggestions: string;
-  detail: AiGradingDetail[];
-  gradedAt: string;
-}
-
-export interface BatchAiGradingResponse {
-  taskId: string;
-  totalCount: number;
-}
+import type { AiGradingConfig, AiGradingResult, GradingBatchTask } from './types';
 
 // ============ API 接口 ============
 export const aiGradingApi = {
@@ -43,8 +7,13 @@ export const aiGradingApi = {
     return request.get<AiGradingConfig>(`/api/assignments/${assignmentId}/ai-grading-config`);
   },
 
-  updateAiGradingConfig: (assignmentId: number, data: AiGradingConfig) => {
-    return request.put(`/api/assignments/${assignmentId}/ai-grading-config`, data);
+  updateAiGradingConfig: (assignmentId: number, data: {
+    enabled?: boolean;
+    promptTemplate?: string;
+    rubricJson?: string;
+    gradingStyle?: string;
+  }) => {
+    return request.put<AiGradingConfig>(`/api/assignments/${assignmentId}/ai-grading-config`, data);
   },
 
   triggerAiGrading: (submissionId: number) => {
@@ -52,7 +21,15 @@ export const aiGradingApi = {
   },
 
   batchAiGrading: (assignmentId: number) => {
-    return request.post<BatchAiGradingResponse>(`/api/assignments/${assignmentId}/ai-grade-batch`);
+    return request.post<GradingBatchTask>(`/api/assignments/${assignmentId}/ai-grade-batch`);
+  },
+
+  getBatchTaskStatus: (assignmentId: number) => {
+    return request.get<GradingBatchTask[]>(`/api/assignments/${assignmentId}/ai-grade-batch/status`);
+  },
+
+  getBatchTaskDetail: (taskId: number) => {
+    return request.get<GradingBatchTask>(`/api/ai-grade-batch/${taskId}`);
   },
 };
 
