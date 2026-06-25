@@ -18,6 +18,8 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
     List<Assignment> findByCourseIdAndStatus(Long courseId, AssignmentStatus status);
 
+    List<Assignment> findByCourseIdAndStatusInOrderByDeadlineAsc(Long courseId, List<AssignmentStatus> statuses);
+
     /** 查询某课程下即将截止的作业（截止时间在指定时间之前且已发布） */
     List<Assignment> findByCourseIdAndStatusAndDeadlineBeforeOrderByDeadlineAsc(
             Long courseId, AssignmentStatus status, LocalDateTime before);

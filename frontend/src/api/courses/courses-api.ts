@@ -49,6 +49,10 @@ export interface CourseActionRequest {
   action: CourseAction;
 }
 
+export interface UpdateMemberRoleRequest {
+  role: 'TEACHER' | 'STUDENT';
+}
+
 export interface GetCoursesParams {
   archived?: boolean;
   page?: number;
@@ -89,6 +93,10 @@ export const courseApi = {
 
   courseAction: (courseId: number, data: CourseActionRequest) => {
     return request.post(`/api/courses/${courseId}/action`, data);
+  },
+
+  updateMemberRole: (courseId: number, memberUserId: number, data: UpdateMemberRoleRequest) => {
+    return request.put(`/api/courses/${courseId}/members/${memberUserId}/role`, data);
   },
 };
 

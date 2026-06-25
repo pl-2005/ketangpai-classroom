@@ -3,14 +3,17 @@ package com.ketangpai.service;
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.entity.Submission;
 import com.ketangpai.model.entity.SubmissionFile;
+import com.ketangpai.model.entity.TempFile;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.AssignmentStatus;
 import com.ketangpai.model.enums.CourseMemberRole;
+import com.ketangpai.model.enums.NotificationType;
 import com.ketangpai.model.enums.SubmissionStatus;
 import com.ketangpai.repository.AssignmentRepository;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.SubmissionFileRepository;
 import com.ketangpai.repository.SubmissionRepository;
+import com.ketangpai.repository.TempFileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,18 +29,24 @@ public class SubmissionService extends BaseService {
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository submissionFileRepository;
     private final AssignmentRepository assignmentRepository;
+    private final TempFileRepository tempFileRepository;
     private final FileService fileService;
+    private final NotificationService notificationService;
 
     public SubmissionService(CourseMemberRepository courseMemberRepository,
                              SubmissionRepository submissionRepository,
                              SubmissionFileRepository submissionFileRepository,
                              AssignmentRepository assignmentRepository,
-                             FileService fileService) {
+                             TempFileRepository tempFileRepository,
+                             FileService fileService,
+                             NotificationService notificationService) {
         super(courseMemberRepository);
         this.submissionRepository = submissionRepository;
         this.submissionFileRepository = submissionFileRepository;
         this.assignmentRepository = assignmentRepository;
+        this.tempFileRepository = tempFileRepository;
         this.fileService = fileService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -86,19 +95,30 @@ public class SubmissionService extends BaseService {
 
         submission = submissionRepository.save(submission);
 
-        // 5. 关联提交文件
+        // 5. 关联提交文件：从 TempFile 创建 SubmissionFile 记录
         if (fileIds != null && !fileIds.isEmpty()) {
             // 删除旧文件关联
             submissionFileRepository.deleteBySubmissionId(submission.getId());
-            // 关联新文件 — 从 TempFile 创建 SubmissionFile 记录
+            // 从 TempFile 创建 SubmissionFile 记录并标记关联
             for (Long fileId : fileIds) {
-                fileService.associateFile(fileId);
-                // TODO: 根据 TempFile 信息创建 SubmissionFile 记录，或直接从 TempFile 读取
+                TempFile tempFile = tempFileRepository.findById(fileId)
+                        .orElseThrow(() -> new BusinessException(404, "文件不存在: " + fileId));
+                if (Boolean.TRUE.equals(tempFile.getAssociated())) {
+                    throw new BusinessException(400, "文件已被其他记录关联: " + fileId);
+                }
+                SubmissionFile submissionFile = SubmissionFile.builder()
+                        .submissionId(submission.getId())
+                        .fileName(tempFile.getFileName())
+                        .fileUrl(tempFile.getFileUrl())
+                        .fileSize(tempFile.getFileSize())
+                        .build();
+                submissionFileRepository.save(submissionFile);
+                tempFile.setAssociated(true);
+                tempFileRepository.save(tempFile);
             }
         }
 
         // TODO: 提交成功后，异步触发 AI 批阅（如果已配置）
-        // TODO: 清除旧的 AI 批阅结果
 
         return submission;
     }
@@ -152,10 +172,21 @@ public class SubmissionService extends BaseService {
         submission.setTeacherComment(comment);
         submission.setStatus(SubmissionStatus.GRADED);
         submission.setGradedAt(LocalDateTime.now());
+        submission = submissionRepository.save(submission);
 
-        // TODO: 发送批阅完成通知给提交学生
+        // 发送批阅完成通知给提交学生
+        Assignment assignment = assignmentRepository.findById(submission.getAssignmentId()).orElse(null);
+        String assignmentTitle = assignment != null ? assignment.getTitle() : "未知作业";
+        notificationService.create(
+                submission.getStudentId(),
+                courseId,
+                NotificationType.ASSIGNMENT_GRADED,
+                "作业已批阅",
+                "作业「" + assignmentTitle + "」已批阅，得分：" + (score != null ? score : "未评分"),
+                submission.getId()
+        );
 
-        return submissionRepository.save(submission);
+        return submission;
     }
 
     @Transactional
@@ -174,7 +205,18 @@ public class SubmissionService extends BaseService {
         submission.setTeacherComment(reason);
         submission = submissionRepository.save(submission);
 
-        // TODO: 发送退回通知
+        // 发送退回通知给提交学生
+        Assignment assignment = assignmentRepository.findById(submission.getAssignmentId()).orElse(null);
+        String assignmentTitle = assignment != null ? assignment.getTitle() : "未知作业";
+        notificationService.create(
+                submission.getStudentId(),
+                courseId,
+                NotificationType.ASSIGNMENT_RETURNED,
+                "作业被退回",
+                "作业「" + assignmentTitle + "」已被退回" +
+                        (reason != null && !reason.isEmpty() ? "，原因：" + reason : ""),
+                submission.getId()
+        );
 
         return submission;
     }

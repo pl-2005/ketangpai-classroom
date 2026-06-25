@@ -34,6 +34,7 @@ export interface Submission {
   content?: string;
   status: SubmissionStatus;
   score?: number;
+  teacherComment?: string;
   version: number;
   files: SubmissionFile[];
   aiGradingResult?: AiGradingResult;

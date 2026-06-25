@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import { Form, Input, Button, Checkbox, message } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 import styles from './Login.module.css';
 import bgImage from '@/assets/login/bg.png';
 
 const Login = () => {
     const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
+    const navigate = useNavigate();
 
     const onFinish = async (values: Record<string, string>) => {
         setLoading(true);
         try {
             const { username, password } = values;
-            const result = await authApi.login({ username, password });
-            if (result.data) {
-                localStorage.setItem('token', result.data.token);
-                localStorage.setItem('user', JSON.stringify(result.data.user));
+            const result: any = await authApi.login({ username, password });
+            if (result.token) {
+                login(result.token, result.user);
                 message.success('登录成功');
-                window.location.href = '/';
+                navigate('/', { replace: true });
             }
         } catch (error) {
             console.error('登录失败:', error);

@@ -2,13 +2,15 @@ package com.ketangpai.service;
 
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.entity.AssignmentAttachment;
+import com.ketangpai.model.entity.CourseMember;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.AssignmentStatus;
+import com.ketangpai.model.enums.CourseMemberRole;
+import com.ketangpai.model.enums.NotificationType;
 import com.ketangpai.repository.AssignmentAttachmentRepository;
 import com.ketangpai.repository.AssignmentRepository;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.SubmissionRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,23 +25,39 @@ public class AssignmentService extends BaseService {
     private final AssignmentRepository assignmentRepository;
     private final AssignmentAttachmentRepository attachmentRepository;
     private final SubmissionRepository submissionRepository;
+    private final NotificationService notificationService;
 
     public AssignmentService(CourseMemberRepository courseMemberRepository,
                              AssignmentRepository assignmentRepository,
                              AssignmentAttachmentRepository attachmentRepository,
-                             SubmissionRepository submissionRepository) {
+                             SubmissionRepository submissionRepository,
+                             NotificationService notificationService) {
         super(courseMemberRepository);
         this.assignmentRepository = assignmentRepository;
         this.attachmentRepository = attachmentRepository;
         this.submissionRepository = submissionRepository;
+        this.notificationService = notificationService;
     }
 
     public List<Assignment> listByCourse(Long courseId, Long userId, String statusFilter) {
         getMemberOrThrow(courseId, userId);
+        boolean isTeacher = isTeacher(courseId, userId);
+
         if (statusFilter != null) {
-            return assignmentRepository.findByCourseIdAndStatus(courseId, AssignmentStatus.valueOf(statusFilter));
+            AssignmentStatus requestedStatus = AssignmentStatus.valueOf(statusFilter);
+            // 学生不能查看草稿状态作业
+            if (!isTeacher && requestedStatus == AssignmentStatus.DRAFT) {
+                return List.of();
+            }
+            return assignmentRepository.findByCourseIdAndStatus(courseId, requestedStatus);
         }
-        return assignmentRepository.findByCourseIdOrderByDeadlineAsc(courseId);
+
+        // 教师可查看所有作业，学生只能看到已发布和已关闭的作业
+        if (isTeacher) {
+            return assignmentRepository.findByCourseIdOrderByDeadlineAsc(courseId);
+        }
+        return assignmentRepository.findByCourseIdAndStatusInOrderByDeadlineAsc(
+                courseId, List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED));
     }
 
     public Assignment getDetail(Long assignmentId, Long userId) {
@@ -85,6 +103,13 @@ public class AssignmentService extends BaseService {
                 .orElseThrow(() -> new BusinessException(404, "作业不存在"));
         checkTeacher(assignment.getCourseId(), userId);
 
+        // 已发布作业只能修改 deadline（延期）和 content（修正要求）
+        if (assignment.getStatus() == AssignmentStatus.PUBLISHED) {
+            if (deadline != null) assignment.setDeadline(deadline);
+            if (content != null) assignment.setContent(content);
+            return assignmentRepository.save(assignment);
+        }
+
         if (title != null) assignment.setTitle(title);
         if (content != null) assignment.setContent(content);
         if (deadline != null) assignment.setDeadline(deadline);
@@ -108,18 +133,74 @@ public class AssignmentService extends BaseService {
         }
 
         assignment.setStatus(newStatus);
-        return assignmentRepository.save(assignment);
+        assignment = assignmentRepository.save(assignment);
+
+        // 发布时通知课程全体学生
+        if (newStatus == AssignmentStatus.PUBLISHED) {
+            List<CourseMember> students = courseMemberRepository
+                    .findByCourseIdAndRole(assignment.getCourseId(), CourseMemberRole.STUDENT);
+            if (!students.isEmpty()) {
+                notificationService.createBatch(
+                        students.stream().map(CourseMember::getUserId).toList(),
+                        assignment.getCourseId(),
+                        NotificationType.ASSIGNMENT_PUBLISHED,
+                        "新作业发布",
+                        "作业「" + assignment.getTitle() + "」已发布，截止时间：" +
+                                (assignment.getDeadline() != null ? assignment.getDeadline().toString() : "暂未设置"),
+                        assignment.getId()
+                );
+            }
+        }
+
+        return assignment;
     }
 
-    /** 催交：返回未提交学生数量 */
+    /** 催交：向未提交学生发送通知，返回通知数量 */
     public long urge(Long assignmentId, Long userId, List<Long> studentIds) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(404, "作业不存在"));
         checkTeacher(assignment.getCourseId(), userId);
 
-        // TODO: 发送催交通知给指定学生或所有未提交学生
-        return studentIds != null ? studentIds.size()
-                : submissionRepository.countByAssignmentIdAndStatus(assignmentId,
-                        com.ketangpai.model.enums.SubmissionStatus.DRAFT);
+        // 如果未指定学生，则向所有未提交的学生发送催交通知
+        List<Long> targetStudentIds;
+        if (studentIds != null && !studentIds.isEmpty()) {
+            targetStudentIds = studentIds;
+        } else {
+            // 查课程所有学生
+            List<CourseMember> students = courseMemberRepository
+                    .findByCourseIdAndRole(assignment.getCourseId(), CourseMemberRole.STUDENT);
+            // 查已提交的学生 ID
+            List<Long> submittedStudentIds = submissionRepository
+                    .findSubmittedByAssignmentId(assignmentId).stream()
+                    .map(s -> s.getStudentId())
+                    .toList();
+            targetStudentIds = students.stream()
+                    .map(CourseMember::getUserId)
+                    .filter(id -> !submittedStudentIds.contains(id))
+                    .toList();
+        }
+
+        if (!targetStudentIds.isEmpty()) {
+            notificationService.createBatch(
+                    targetStudentIds,
+                    assignment.getCourseId(),
+                    NotificationType.ASSIGNMENT_URGED,
+                    "作业催交",
+                    "请尽快提交作业「" + assignment.getTitle() + "」",
+                    assignment.getId()
+            );
+        }
+
+        return targetStudentIds.size();
+    }
+
+    /** 检查用户是否为课程教师（不抛异常，返回 boolean） */
+    private boolean isTeacher(Long courseId, Long userId) {
+        try {
+            checkTeacher(courseId, userId);
+            return true;
+        } catch (BusinessException e) {
+            return false;
+        }
     }
 }
