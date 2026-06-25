@@ -1,6 +1,7 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
+import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.FileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +26,13 @@ public class FileController {
     private final FileService fileService;
 
     @PostMapping("/upload")
-    public Result<Map<String, Object>> upload(@RequestParam("file") MultipartFile file) throws IOException {
+    public Result<Map<String, Object>> upload(@CurrentUserId Long userId,
+                                              @RequestParam("file") MultipartFile file) throws IOException {
         Map<String, Object> result = fileService.upload(
-                file.getBytes(), file.getOriginalFilename(), file.getContentType());
+                file.getBytes(),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                userId);
         return Result.ok(result);
     }
 

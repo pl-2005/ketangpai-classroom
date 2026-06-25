@@ -346,3 +346,21 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     KEY `idx_user_course` (`user_id`, `course_id`),
     KEY `idx_session` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- 20. 临时文件表（先上传，后关联）
+-- =============================================
+CREATE TABLE IF NOT EXISTS `temp_file` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `file_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    `file_url` VARCHAR(500) NOT NULL COMMENT 'MinIO 对象路径',
+    `file_size` BIGINT NOT NULL COMMENT '文件大小（字节）',
+    `content_type` VARCHAR(100) DEFAULT NULL COMMENT 'MIME 类型',
+    `uploader_id` BIGINT NOT NULL COMMENT '上传者用户 ID',
+    `associated` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已被业务实体关联',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_uploader_id` (`uploader_id`),
+    KEY `idx_associated_expired` (`associated`, `create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
