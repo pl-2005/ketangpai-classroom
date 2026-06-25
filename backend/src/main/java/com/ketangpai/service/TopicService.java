@@ -2,11 +2,13 @@ package com.ketangpai.service;
 
 import com.ketangpai.model.entity.Topic;
 import com.ketangpai.model.entity.TopicReply;
+import com.ketangpai.model.entity.User;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.TopicStatus;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.TopicReplyRepository;
 import com.ketangpai.repository.TopicRepository;
+import com.ketangpai.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,29 +22,44 @@ public class TopicService extends BaseService {
 
     private final TopicRepository topicRepository;
     private final TopicReplyRepository replyRepository;
+    private final UserRepository userRepository;
 
     public TopicService(CourseMemberRepository courseMemberRepository,
                         TopicRepository topicRepository,
-                        TopicReplyRepository replyRepository) {
+                        TopicReplyRepository replyRepository,
+                        UserRepository userRepository) {
         super(courseMemberRepository);
         this.topicRepository = topicRepository;
         this.replyRepository = replyRepository;
+        this.userRepository = userRepository;
     }
 
     public List<Topic> listByCourse(Long courseId, Long userId) {
         getMemberOrThrow(courseId, userId);
-        return topicRepository.findByCourseIdOrderByStatusDescCreateTimeDesc(courseId);
+        List<Topic> topics = topicRepository.findByCourseIdOrderByStatusDescCreateTimeDesc(courseId);
+        topics.forEach(topic -> {
+            populateAuthorName(topic);
+            anonymizeTopic(topic);
+        });
+        return topics;
     }
 
     public Topic getDetail(Long topicId, Long userId) {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new BusinessException(404, "话题不存在"));
         getMemberOrThrow(topic.getCourseId(), userId);
+        populateAuthorName(topic);
+        anonymizeTopic(topic);
         return topic;
     }
 
     public List<TopicReply> getReplies(Long topicId) {
-        return replyRepository.findByTopicIdOrderByPathAscCreateTimeAsc(topicId);
+        List<TopicReply> replies = replyRepository.findByTopicIdOrderByPathAscCreateTimeAsc(topicId);
+        replies.forEach(reply -> {
+            populateAuthorName(reply);
+            anonymizeReply(reply);
+        });
+        return replies;
     }
 
     @Transactional
@@ -161,6 +178,41 @@ public class TopicService extends BaseService {
 
         reply.setDeleted(true);
         replyRepository.save(reply);
+    }
+
+    @Transactional
+    public Topic toggleDiscussion(Long topicId, Long userId) {
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() -> new BusinessException(404, "话题不存在"));
+        checkTeacher(topic.getCourseId(), userId);
+        topic.setDiscussionEnabled(!topic.getDiscussionEnabled());
+        return topicRepository.save(topic);
+    }
+
+    // ==================== 辅助方法 ====================
+
+    private void populateAuthorName(Topic topic) {
+        userRepository.findById(topic.getAuthorId())
+                .ifPresent(user -> topic.setAuthorName(user.getRealName()));
+    }
+
+    private void populateAuthorName(TopicReply reply) {
+        userRepository.findById(reply.getAuthorId())
+                .ifPresent(user -> reply.setAuthorName(user.getRealName()));
+    }
+
+    private void anonymizeTopic(Topic topic) {
+        if (Boolean.TRUE.equals(topic.getIsAnonymous())) {
+            topic.setAuthorId(null);
+            topic.setAuthorName("匿名用户");
+        }
+    }
+
+    private void anonymizeReply(TopicReply reply) {
+        if (Boolean.TRUE.equals(reply.getIsAnonymous())) {
+            reply.setAuthorId(null);
+            reply.setAuthorName("匿名用户");
+        }
     }
 
     private boolean isTeacher(Long courseId, Long userId) {

@@ -2,13 +2,14 @@ import request from '../../utils/request';
 import type { PageResponse } from '../../utils/request';
 
 // ============ 类型定义 ============
-export type NotificationType = 
-  | 'ASSIGNMENT_PUBLISHED' 
-  | 'ASSIGNMENT_CLOSED' 
-  | 'ASSIGNMENT_URGE' 
-  | 'SUBMISSION_GRADED' 
-  | 'SUBMISSION_RETURNED' 
-  | 'TOPIC_REPLY';
+export type NotificationType =
+  | 'ASSIGNMENT_PUBLISHED'
+  | 'ASSIGNMENT_URGED'
+  | 'ASSIGNMENT_GRADED'
+  | 'ASSIGNMENT_RETURNED'
+  | 'TOPIC_REPLY'
+  | 'COURSE_JOINED'
+  | 'COURSE_ANNOUNCEMENT';
 
 export interface Notification {
   id: number;
@@ -16,6 +17,7 @@ export interface Notification {
   title: string;
   content: string;
   isRead: boolean;
+  courseId?: number;
   relatedId?: number;
   createTime: string;
 }

@@ -1,6 +1,7 @@
 package com.ketangpai.controller;
 
 import com.ketangpai.common.Result;
+import com.ketangpai.model.enums.NotificationType;
 import com.ketangpai.security.CurrentUserId;
 import com.ketangpai.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +29,10 @@ public class NotificationController {
     @GetMapping
     public Result<?> list(@CurrentUserId Long userId,
                            @RequestParam(defaultValue = "0") int page,
-                           @RequestParam(defaultValue = "20") int size) {
-        return Result.ok(notificationService.list(userId, PageRequest.of(page, size)));
+                           @RequestParam(defaultValue = "20") int size,
+                           @RequestParam(required = false) String type) {
+        NotificationType notificationType = type != null ? NotificationType.valueOf(type) : null;
+        return Result.ok(notificationService.list(userId, notificationType, PageRequest.of(page, size)));
     }
 
     @GetMapping("/unread-count")

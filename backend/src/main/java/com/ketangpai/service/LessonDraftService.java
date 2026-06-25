@@ -161,7 +161,8 @@ public class LessonDraftService {
                 MaterialType.valueOf((String) data.get("type")),
                 (String) data.get("fileUrl"),
                 data.get("fileSize") != null ? ((Number) data.get("fileSize")).longValue() : null,
-                (String) data.get("linkUrl")
+                (String) data.get("linkUrl"),
+                data.get("fileId") != null ? ((Number) data.get("fileId")).longValue() : null
         );
     }
 

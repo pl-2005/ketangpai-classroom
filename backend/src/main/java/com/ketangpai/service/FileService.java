@@ -137,6 +137,17 @@ public class FileService {
         return generatePresignedUrl(file.getFileUrl());
     }
 
+    /**
+     * 根据 MinIO 对象路径直接生成预签名 URL（绕过 TempFile）。
+     * 用于资料等直接存储 objectPath 的场景。
+     */
+    public String getPresignedUrlByPath(String objectPath) {
+        if (objectPath == null || objectPath.isBlank()) {
+            throw new BusinessException(400, "文件路径为空");
+        }
+        return generatePresignedUrl(objectPath);
+    }
+
     // ==================== 预览 ====================
 
     /**

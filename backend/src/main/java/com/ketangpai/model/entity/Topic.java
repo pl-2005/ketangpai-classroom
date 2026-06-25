@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -54,4 +55,8 @@ public class Topic extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean deleted = false;
+
+    /** 瞬态字段：作者姓名（不持久化），由 Service 层填充 */
+    @Transient
+    private String authorName;
 }

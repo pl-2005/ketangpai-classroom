@@ -78,6 +78,11 @@ public class TopicController {
                 body.get("title"), body.get("content")));
     }
 
+    @PutMapping("/topics/{topicId}/discussion")
+    public Result<Topic> toggleDiscussion(@CurrentUserId Long userId, @PathVariable Long topicId) {
+        return Result.ok(topicService.toggleDiscussion(topicId, userId));
+    }
+
     @DeleteMapping("/topics/{topicId}")
     public Result<Void> deleteTopic(@CurrentUserId Long userId, @PathVariable Long topicId) {
         topicService.deleteTopic(topicId, userId);

@@ -53,7 +53,14 @@ public class MaterialController {
                 MaterialType.valueOf((String) body.get("type")),
                 (String) body.get("fileUrl"),
                 body.get("fileSize") != null ? ((Number) body.get("fileSize")).longValue() : null,
-                (String) body.get("linkUrl")));
+                (String) body.get("linkUrl"),
+                body.get("fileId") != null ? ((Number) body.get("fileId")).longValue() : null));
+    }
+
+    @GetMapping("/materials/{materialId}/download")
+    public Result<Map<String, String>> getDownloadUrl(@CurrentUserId Long userId,
+                                                       @PathVariable Long materialId) {
+        return Result.ok(Map.of("url", materialService.getDownloadUrl(materialId, userId)));
     }
 
     @PutMapping("/materials/{materialId}/move")

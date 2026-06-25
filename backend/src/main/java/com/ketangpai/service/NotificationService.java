@@ -55,7 +55,10 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
-    public Page<Notification> list(Long userId, Pageable pageable) {
+    public Page<Notification> list(Long userId, NotificationType type, Pageable pageable) {
+        if (type != null) {
+            return notificationRepository.findByUserIdAndType(userId, type, pageable);
+        }
         return notificationRepository.findByUserId(userId, pageable);
     }
 

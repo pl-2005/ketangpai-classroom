@@ -29,6 +29,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { key: 'courses', icon: <BookOutlined />, label: '我的课程', path: '/courses' },
   { key: 'notifications', icon: <BellOutlined />, label: '消息中心', path: '/notifications' },
+  { key: 'drafts', icon: <EditOutlined />, label: '备课区', path: '/drafts' },
 ];
 
 export default function AppLayout() {

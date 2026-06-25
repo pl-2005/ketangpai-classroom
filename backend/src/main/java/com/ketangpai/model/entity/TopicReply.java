@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -61,4 +62,8 @@ public class TopicReply {
     @Column
     @Builder.Default
     private LocalDateTime createTime = LocalDateTime.now();
+
+    /** 瞬态字段：作者姓名（不持久化），由 Service 层填充 */
+    @Transient
+    private String authorName;
 }

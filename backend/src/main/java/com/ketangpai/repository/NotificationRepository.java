@@ -31,6 +31,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("SELECT n FROM Notification n WHERE n.userId = :userId AND n.type = :type AND n.deleted = false ORDER BY n.createTime DESC")
     List<Notification> findByUserIdAndType(@Param("userId") Long userId, @Param("type") NotificationType type);
 
+    /** 分页查询指定类型的通知 */
+    @Query("SELECT n FROM Notification n WHERE n.userId = :userId AND n.type = :type AND n.deleted = false ORDER BY n.createTime DESC")
+    Page<Notification> findByUserIdAndType(@Param("userId") Long userId, @Param("type") NotificationType type, Pageable pageable);
+
     /** 批量标记通知为已读 */
     @Modifying
     @Transactional

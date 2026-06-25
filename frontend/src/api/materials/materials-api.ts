@@ -40,6 +40,7 @@ export interface CreateMaterialRequest {
   fileUrl?: string;
   fileSize?: number;
   linkUrl?: string;
+  fileId?: number;
 }
 
 export interface MoveMaterialRequest {
@@ -79,6 +80,10 @@ export const materialsApi = {
 
   deleteFolder: (folderId: number) => {
     return request.delete(`/api/materials/folders/${folderId}`);
+  },
+
+  getMaterialDownloadUrl: (materialId: number) => {
+    return request.get<{ url: string }>(`/api/materials/${materialId}/download`);
   },
 };
 

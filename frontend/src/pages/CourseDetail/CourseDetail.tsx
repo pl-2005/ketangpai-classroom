@@ -8,8 +8,10 @@ import {
 import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
-  CrownOutlined,
+  CrownOutlined, FolderOutlined, CommentOutlined,
 } from '@ant-design/icons';
+import MaterialsTab from './MaterialsTab';
+import TopicsTab from './TopicsTab';
 import dayjs from 'dayjs';
 import { courseApi, assignmentsApi, submissionsApi, type Course } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -393,6 +395,16 @@ export default function CourseDetail() {
               size="middle"
             />
           ),
+        },
+        {
+          key: 'materials',
+          label: <span><FolderOutlined /> 课程资料</span>,
+          children: <MaterialsTab courseId={numCourseId} isTeacher={!!isTeacher} />,
+        },
+        {
+          key: 'topics',
+          label: <span><CommentOutlined /> 话题讨论</span>,
+          children: <TopicsTab courseId={numCourseId} isTeacher={!!isTeacher} />,
         },
       ]} />
 

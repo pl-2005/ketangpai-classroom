@@ -23,13 +23,16 @@ public class MaterialService extends BaseService {
 
     private final MaterialFolderRepository folderRepository;
     private final MaterialRepository materialRepository;
+    private final FileService fileService;
 
     public MaterialService(CourseMemberRepository courseMemberRepository,
                            MaterialFolderRepository folderRepository,
-                           MaterialRepository materialRepository) {
+                           MaterialRepository materialRepository,
+                           FileService fileService) {
         super(courseMemberRepository);
         this.folderRepository = folderRepository;
         this.materialRepository = materialRepository;
+        this.fileService = fileService;
     }
 
     /** 构建课程资料目录树 */
@@ -105,7 +108,7 @@ public class MaterialService extends BaseService {
 
     @Transactional
     public Material create(Long courseId, Long userId, Long folderId, String title,
-                           MaterialType type, String fileUrl, Long fileSize, String linkUrl) {
+                           MaterialType type, String fileUrl, Long fileSize, String linkUrl, Long fileId) {
         checkTeacher(courseId, userId);
 
         Material material = Material.builder()
@@ -118,9 +121,24 @@ public class MaterialService extends BaseService {
                 .linkUrl(linkUrl)
                 .build();
 
-        // TODO: 关联临时上传文件
+        Material saved = materialRepository.save(material);
 
-        return materialRepository.save(material);
+        // 关联临时上传文件，防止被定时清理
+        if (fileId != null) {
+            fileService.associateFile(fileId);
+        }
+
+        return saved;
+    }
+
+    /**
+     * 生成资料文件的预签名下载 URL（需课程成员身份）
+     */
+    public String getDownloadUrl(Long materialId, Long userId) {
+        Material material = materialRepository.findById(materialId)
+                .orElseThrow(() -> new BusinessException(404, "资料不存在"));
+        getMemberOrThrow(material.getCourseId(), userId);
+        return fileService.getPresignedUrlByPath(material.getFileUrl());
     }
 
     @Transactional
@@ -128,6 +146,16 @@ public class MaterialService extends BaseService {
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new BusinessException(404, "资料不存在"));
         checkTeacher(material.getCourseId(), userId);
+
+        // 校验目标文件夹属于同一课程
+        if (targetFolderId != null) {
+            MaterialFolder targetFolder = folderRepository.findById(targetFolderId)
+                    .orElseThrow(() -> new BusinessException(404, "目标文件夹不存在"));
+            if (!targetFolder.getCourseId().equals(material.getCourseId())) {
+                throw new BusinessException(400, "目标文件夹不属于同一课程");
+            }
+        }
+
         material.setFolderId(targetFolderId);
         materialRepository.save(material);
     }

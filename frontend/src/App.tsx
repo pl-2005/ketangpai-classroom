@@ -7,6 +7,9 @@ import CourseList from './pages/CourseList/CourseList';
 import CourseDetail from './pages/CourseDetail/CourseDetail';
 import AssignmentDetail from './pages/AssignmentDetail/AssignmentDetail';
 import Grading from './pages/Grading/Grading';
+import NotificationCenter from './pages/NotificationCenter/NotificationCenter';
+import TopicDetail from './pages/TopicDetail/TopicDetail';
+import Drafts from './pages/Drafts/Drafts';
 
 function App() {
   return (
@@ -26,6 +29,9 @@ function App() {
         <Route path="courses/:courseId" element={<CourseDetail />} />
         <Route path="courses/:courseId/assignments/:assignmentId" element={<AssignmentDetail />} />
         <Route path="courses/:courseId/assignments/:assignmentId/grade/:submissionId" element={<Grading />} />
+        <Route path="courses/:courseId/topics/:topicId" element={<TopicDetail />} />
+        <Route path="notifications" element={<NotificationCenter />} />
+        <Route path="drafts" element={<Drafts />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

@@ -90,6 +90,10 @@ export const topicsApi = {
   deleteReply: (replyId: number) => {
     return request.delete(`/api/topics/replies/${replyId}`);
   },
+
+  toggleDiscussion: (topicId: number) => {
+    return request.put<Topic>(`/api/topics/${topicId}/discussion`);
+  },
 };
 
 export default topicsApi;
