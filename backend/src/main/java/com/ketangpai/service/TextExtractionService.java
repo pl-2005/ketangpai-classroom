@@ -83,6 +83,19 @@ public class TextExtractionService {
         return text;
     }
 
+    /**
+     * 从字节数组提取文本（用于 Material 索引等场景）。
+     * 支持 .txt / .docx / .pdf。
+     */
+    public String extractFromBytes(byte[] bytes, String extension) {
+        try {
+            return extractByExtension(bytes, extension.toLowerCase(), "");
+        } catch (IOException e) {
+            log.error("文本提取失败: extension={}", extension, e);
+            return "[文件内容无法提取]";
+        }
+    }
+
     /** 根据扩展名选择提取器 */
     private String extractByExtension(byte[] bytes, String extension, String fileName) throws IOException {
         return switch (extension) {

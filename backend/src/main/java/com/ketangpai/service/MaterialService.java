@@ -24,15 +24,18 @@ public class MaterialService extends BaseService {
     private final MaterialFolderRepository folderRepository;
     private final MaterialRepository materialRepository;
     private final FileService fileService;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     public MaterialService(CourseMemberRepository courseMemberRepository,
                            MaterialFolderRepository folderRepository,
                            MaterialRepository materialRepository,
-                           FileService fileService) {
+                           FileService fileService,
+                           KnowledgeBaseService knowledgeBaseService) {
         super(courseMemberRepository);
         this.folderRepository = folderRepository;
         this.materialRepository = materialRepository;
         this.fileService = fileService;
+        this.knowledgeBaseService = knowledgeBaseService;
     }
 
     /** 构建课程资料目录树 */
@@ -128,6 +131,9 @@ public class MaterialService extends BaseService {
             fileService.associateFile(fileId);
         }
 
+        // 异步索引到知识库
+        knowledgeBaseService.indexMaterial(saved);
+
         return saved;
     }
 
@@ -177,6 +183,10 @@ public class MaterialService extends BaseService {
         checkTeacher(material.getCourseId(), userId);
         material.setDeleted(true);
         materialRepository.save(material);
+
+        // 异步清理知识库索引
+        knowledgeBaseService.deleteBySource(
+                com.ketangpai.model.enums.SourceType.MATERIAL, materialId);
     }
 
     @Transactional

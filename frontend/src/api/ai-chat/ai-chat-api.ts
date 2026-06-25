@@ -6,14 +6,18 @@ export type ChatRole = 'USER' | 'ASSISTANT';
 export interface ChatReference {
   chunkId: number;
   sourceName: string;
+  sourceType: string;
   excerpt: string;
 }
 
 export interface ChatMessage {
   id: number;
+  userId: number;
+  courseId: number;
   sessionId: string;
   role: ChatRole;
   content: string;
+  referencesJson?: string;
   references?: ChatReference[];
   createTime: string;
 }
@@ -22,11 +26,7 @@ export interface ChatSession {
   sessionId: string;
   title: string;
   lastMessage?: string;
-  lastTime: string;
-}
-
-export interface CreateSessionRequest {
-  title: string;
+  lastTime?: string;
 }
 
 export interface SendMessageRequest {
@@ -36,8 +36,8 @@ export interface SendMessageRequest {
 
 // ============ API 接口 ============
 export const aiChatApi = {
-  createSession: (courseId: number, data: CreateSessionRequest) => {
-    return request.post<{ sessionId: string }>(`/api/courses/${courseId}/ai-chat/sessions`, data);
+  createSession: (courseId: number) => {
+    return request.post<{ sessionId: string }>(`/api/courses/${courseId}/ai-chat/sessions`);
   },
 
   getSessions: (courseId: number) => {
@@ -54,6 +54,11 @@ export const aiChatApi = {
 
   deleteSession: (courseId: number, sessionId: string) => {
     return request.delete(`/api/courses/${courseId}/ai-chat/sessions/${sessionId}`);
+  },
+
+  /** 重建课程知识库（教师权限） */
+  rebuildKnowledge: (courseId: number) => {
+    return request.post<{ message: string }>(`/api/courses/${courseId}/ai-chat/knowledge/rebuild`);
   },
 };
 

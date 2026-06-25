@@ -23,15 +23,18 @@ public class TopicService extends BaseService {
     private final TopicRepository topicRepository;
     private final TopicReplyRepository replyRepository;
     private final UserRepository userRepository;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     public TopicService(CourseMemberRepository courseMemberRepository,
                         TopicRepository topicRepository,
                         TopicReplyRepository replyRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        KnowledgeBaseService knowledgeBaseService) {
         super(courseMemberRepository);
         this.topicRepository = topicRepository;
         this.replyRepository = replyRepository;
         this.userRepository = userRepository;
+        this.knowledgeBaseService = knowledgeBaseService;
     }
 
     public List<Topic> listByCourse(Long courseId, Long userId) {
@@ -73,7 +76,12 @@ public class TopicService extends BaseService {
                 .content(content)
                 .isAnonymous(isAnonymous != null && isAnonymous)
                 .build();
-        return topicRepository.save(topic);
+        topic = topicRepository.save(topic);
+
+        // 异步索引到知识库
+        knowledgeBaseService.indexTopic(topic);
+
+        return topic;
     }
 
     @Transactional
@@ -145,7 +153,14 @@ public class TopicService extends BaseService {
 
         if (title != null) topic.setTitle(title);
         if (content != null) topic.setContent(content);
-        return topicRepository.save(topic);
+        topic = topicRepository.save(topic);
+
+        // 内容变更后重新索引
+        if (content != null || title != null) {
+            knowledgeBaseService.indexTopic(topic);
+        }
+
+        return topic;
     }
 
     @Transactional
@@ -161,6 +176,10 @@ public class TopicService extends BaseService {
 
         topic.setDeleted(true);
         topicRepository.save(topic);
+
+        // 异步清理知识库索引
+        knowledgeBaseService.deleteBySource(
+                com.ketangpai.model.enums.SourceType.TOPIC, topicId);
     }
 
     @Transactional

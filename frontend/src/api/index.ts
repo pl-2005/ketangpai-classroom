@@ -22,3 +22,4 @@ export type { Topic, TopicReply, TopicStatus } from './topics/topics-api';
 export type { Draft, DraftType } from './drafts/drafts-api';
 export type { Notification, NotificationType } from './notifications/notifications-api';
 export type { GradingStyle, RubricItem, AiGradingConfig, DimensionScore, AiGradingResult, GradingBatchTask } from './ai-grading/types';
+export type { ChatMessage, ChatSession, ChatReference, ChatRole } from './ai-chat/ai-chat-api';

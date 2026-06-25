@@ -10,6 +10,7 @@ import Grading from './pages/Grading/Grading';
 import NotificationCenter from './pages/NotificationCenter/NotificationCenter';
 import TopicDetail from './pages/TopicDetail/TopicDetail';
 import Drafts from './pages/Drafts/Drafts';
+import AiChat from './pages/AiChat/AiChat';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Route path="courses/:courseId/topics/:topicId" element={<TopicDetail />} />
         <Route path="notifications" element={<NotificationCenter />} />
         <Route path="drafts" element={<Drafts />} />
+        <Route path="courses/:courseId/ai-chat" element={<AiChat />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

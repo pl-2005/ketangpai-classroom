@@ -26,17 +26,20 @@ public class AssignmentService extends BaseService {
     private final AssignmentAttachmentRepository attachmentRepository;
     private final SubmissionRepository submissionRepository;
     private final NotificationService notificationService;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     public AssignmentService(CourseMemberRepository courseMemberRepository,
                              AssignmentRepository assignmentRepository,
                              AssignmentAttachmentRepository attachmentRepository,
                              SubmissionRepository submissionRepository,
-                             NotificationService notificationService) {
+                             NotificationService notificationService,
+                             KnowledgeBaseService knowledgeBaseService) {
         super(courseMemberRepository);
         this.assignmentRepository = assignmentRepository;
         this.attachmentRepository = attachmentRepository;
         this.submissionRepository = submissionRepository;
         this.notificationService = notificationService;
+        this.knowledgeBaseService = knowledgeBaseService;
     }
 
     public List<Assignment> listByCourse(Long courseId, Long userId, String statusFilter) {
@@ -93,6 +96,9 @@ public class AssignmentService extends BaseService {
             // TODO: 关联已上传的临时文件到作业
         }
 
+        // 异步索引到知识库
+        knowledgeBaseService.indexAssignment(assignment);
+
         return assignment;
     }
 
@@ -116,7 +122,14 @@ public class AssignmentService extends BaseService {
         if (maxScore != null) assignment.setMaxScore(maxScore);
         if (allowResubmit != null) assignment.setAllowResubmit(allowResubmit);
 
-        return assignmentRepository.save(assignment);
+        assignment = assignmentRepository.save(assignment);
+
+        // 内容变更后重新索引
+        if (content != null || title != null) {
+            knowledgeBaseService.indexAssignment(assignment);
+        }
+
+        return assignment;
     }
 
     @Transactional
@@ -135,8 +148,9 @@ public class AssignmentService extends BaseService {
         assignment.setStatus(newStatus);
         assignment = assignmentRepository.save(assignment);
 
-        // 发布时通知课程全体学生
+        // 发布时通知课程全体学生 + 索引到知识库
         if (newStatus == AssignmentStatus.PUBLISHED) {
+            knowledgeBaseService.indexAssignment(assignment);
             List<CourseMember> students = courseMemberRepository
                     .findByCourseIdAndRole(assignment.getCourseId(), CourseMemberRole.STUDENT);
             if (!students.isEmpty()) {

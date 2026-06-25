@@ -8,7 +8,7 @@ import {
 import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
-  CrownOutlined, FolderOutlined, CommentOutlined,
+  CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined,
 } from '@ant-design/icons';
 import MaterialsTab from './MaterialsTab';
 import TopicsTab from './TopicsTab';
@@ -273,6 +273,15 @@ export default function CourseDetail() {
             {course.status === 'ARCHIVED' ? <Tag color="orange">已归档</Tag> : <Tag color="green">活跃</Tag>}
           </Descriptions.Item>
         </Descriptions>
+        <div style={{ marginTop: 12 }}>
+          <Button
+            type="default"
+            icon={<RobotOutlined />}
+            onClick={() => navigate(`/courses/${courseId}/ai-chat`)}
+          >
+            AI 答疑
+          </Button>
+        </div>
       </Card>
 
       {/* Tabs */}
