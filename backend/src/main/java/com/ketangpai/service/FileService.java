@@ -56,6 +56,17 @@ public class FileService {
             "pdf", "png", "jpg", "jpeg", "gif"
     );
 
+    /** 头像允许的图片格式 */
+    private static final Set<String> AVATAR_ALLOWED_EXTENSIONS = Set.of(
+            "png", "jpg", "jpeg", "gif"
+    );
+
+    /** 头像最大 5MB */
+    private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024;
+
+    /** 头像预签名 URL 有效期（小时） */
+    private static final int AVATAR_PRESIGNED_HOURS = 24;
+
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
     private final TempFileRepository tempFileRepository;
@@ -125,6 +136,111 @@ public class FileService {
                 "fileUrl", buildPublicUrl(objectPath),
                 "fileSize", fileBytes.length
         );
+    }
+
+    // ==================== 头像上传 ====================
+
+    /**
+     * 上传用户头像到 MinIO。
+     *
+     * <p>与通用文件上传不同，头像直接存入 avatars/ 前缀下，
+     * 不创建 TempFile 记录，而是返回 objectPath（存入 user.avatar_url）
+     * 和 presignedUrl（前端即时展示用，有效期 24 小时）。
+     *
+     * @param fileBytes        图片字节
+     * @param originalFileName 原始文件名（用于提取扩展名）
+     * @param userId           用户 ID
+     * @return { objectPath, avatarUrl }
+     */
+    public Map<String, String> uploadAvatar(byte[] fileBytes,
+                                             String originalFileName,
+                                             Long userId) {
+        // 1. 校验
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new BusinessException(400, "头像文件不能为空");
+        }
+        if (fileBytes.length > MAX_AVATAR_SIZE) {
+            throw new BusinessException(400,
+                    String.format("头像大小不能超过 %dMB", MAX_AVATAR_SIZE / (1024 * 1024)));
+        }
+
+        String extension = extractExtension(originalFileName).toLowerCase();
+        if (extension.isEmpty() || !AVATAR_ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new BusinessException(400,
+                    "头像仅支持: " + String.join(", ", AVATAR_ALLOWED_EXTENSIONS));
+        }
+
+        // 2. 生成 MinIO 对象路径：avatars/{userId}_{timestamp}.{ext}
+        String objectPath = String.format("avatars/%d_%d.%s",
+                userId, System.currentTimeMillis(), extension);
+
+        String contentType = switch (extension) {
+            case "png" -> "image/png";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "gif" -> "image/gif";
+            default -> "application/octet-stream";
+        };
+
+        // 3. 上传到 MinIO
+        try {
+            // 删除旧头像（如果存在）
+            // 这里不追踪旧路径，新的 objectPath 会覆盖写入
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(minioConfig.getBucket())
+                    .object(objectPath)
+                    .stream(new ByteArrayInputStream(fileBytes), (long) fileBytes.length, -1L)
+                    .contentType(contentType)
+                    .build());
+        } catch (Exception e) {
+            log.error("头像上传 MinIO 失败: userId={}, size={}", userId, fileBytes.length, e);
+            throw new BusinessException(500, "头像上传失败，请稍后重试");
+        }
+
+        // 4. 生成预签名 URL（24 小时有效）
+        String presignedUrl;
+        try {
+            presignedUrl = minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .bucket(minioConfig.getBucket())
+                            .object(objectPath)
+                            .method(Http.Method.GET)
+                            .expiry(AVATAR_PRESIGNED_HOURS, TimeUnit.HOURS)
+                            .build());
+        } catch (Exception e) {
+            log.error("生成头像预签名 URL 失败: path={}", objectPath, e);
+            throw new BusinessException(500, "头像链接生成失败");
+        }
+
+        log.info("头像上传成功: userId={}, path={}, size={}B", userId, objectPath, fileBytes.length);
+
+        return Map.of(
+                "objectPath", objectPath,
+                "avatarUrl", presignedUrl
+        );
+    }
+
+    /**
+     * 根据存储的 objectPath 生成头像的预签名访问 URL。
+     *
+     * @param objectPath 存储在 user.avatar_url 中的 MinIO 对象路径
+     * @return 预签名 URL（24 小时有效），如果 objectPath 为空则返回 null
+     */
+    public String getAvatarPresignedUrl(String objectPath) {
+        if (objectPath == null || objectPath.isBlank()) {
+            return null;
+        }
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .bucket(minioConfig.getBucket())
+                            .object(objectPath)
+                            .method(Http.Method.GET)
+                            .expiry(AVATAR_PRESIGNED_HOURS, TimeUnit.HOURS)
+                            .build());
+        } catch (Exception e) {
+            log.warn("生成头像预签名 URL 失败: path={}", objectPath, e);
+            return null;
+        }
     }
 
     // ==================== 下载 ====================

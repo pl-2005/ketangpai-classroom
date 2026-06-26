@@ -54,4 +54,16 @@ public class UserService {
         user.setAvatarUrl(avatarUrl);
         return userRepository.save(user);
     }
+
+    /**
+     * 获取用户头像的 MinIO 对象路径（存储在 avatar_url 字段中）。
+     *
+     * @return objectPath，不存在则返回 null
+     */
+    @Transactional(readOnly = true)
+    public String getAvatarPath(Long userId) {
+        return userRepository.findById(userId)
+                .map(User::getAvatarUrl)
+                .orElse(null);
+    }
 }

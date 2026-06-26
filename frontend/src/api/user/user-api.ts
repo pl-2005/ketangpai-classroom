@@ -32,6 +32,10 @@ export const userApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  getAvatarUrl: () => {
+    return request.get<UploadAvatarResponse>('/api/user/avatar');
+  },
 };
 
 export default userApi;

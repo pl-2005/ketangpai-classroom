@@ -82,17 +82,18 @@ GET /api/xxx?page=0&size=20&sort=createTime,desc
 |------|--------|----------|
 | 账号认证 | 3 | `/api/auth` |
 | 用户管理 | 3 | `/api/user` |
-| 课程管理 | 7 | `/api/courses` |
+| 课程管理 | 8 | `/api/courses` |
 | 作业管理 | 6 | `/api/assignments` |
 | 提交管理 | 5 | `/api/submissions` |
-| 资料管理 | 6 | `/api/materials` |
-| 话题讨论 | 7 | `/api/topics` |
-| 备课区 | 4 | `/api/drafts` |
-| AI 批阅 | 4 | `/api/ai-grading` |
+| 资料管理 | 7 | `/api/materials` |
+| 话题讨论 | 8 | `/api/topics` |
+| 备课区 | 5 | `/api/drafts` |
+| AI 批阅 | 6 | `/api/ai-grading` |
 | 相似度分析 | 3 | `/api/similarity` |
-| AI 答疑 | 4 | `/api/ai-chat` |
-| 通知管理 | 4 | `/api/notifications` |
+| AI 答疑 | 6 | `/api/ai-chat` |
+| 通知管理 | 5 | `/api/notifications` |
 | 文件上传 | 2 | `/api/files` |
+| 通用 | 1 | `/api` |
 
 ---
 
@@ -433,8 +434,44 @@ POST /api/courses/{courseId}/action
 | `ARCHIVE` | 所有人 | 仅归档自己（`isArchived = true`） |
 | `UNARCHIVE` | 所有人 | 恢复归档 |
 | `ARCHIVE_FOR_ALL` | CREATOR | 归档课程本身 + 所有人 |
+| `RESTORE_FOR_ALL` | CREATOR | 恢复课程本身为活跃状态 |
 | `LEAVE` | STUDENT / TEACHER | 退课（`deleted = true`） |
 | `DELETE` | CREATOR | 软删除课程（`course.deleted = true`） |
+
+---
+
+#### 3.3.8 更新成员角色
+
+```
+PUT /api/courses/{courseId}/members/{memberUserId}/role
+```
+
+权限：仅 CREATOR。
+
+**请求体：**
+
+```json
+{
+  "role": "TEACHER"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `role` | enum | 是 | `TEACHER`（设为共管教师）或 `STUDENT`（降为学生） |
+
+**限制：**
+- 不能修改 CREATOR 的角色
+- 设为 TEACHER 的目标用户必须全局角色为 TEACHER
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success"
+}
+```
 
 ---
 
@@ -843,6 +880,30 @@ DELETE /api/materials/folders/{folderId} // 文件夹及内容全部软删除
 
 ---
 
+#### 3.6.7 获取资料下载链接
+
+```
+GET /api/materials/{materialId}/download
+```
+
+直接从资料 ID 获取临时下载 URL（含课程成员权限校验），302 重定向到 MinIO 直链。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "url": "http://minio:9000/ketangpai/materials/xxx.pptx?sign=..."
+  }
+}
+```
+
+与 `GET /api/files/{fileId}/download` 的区别：本接口额外校验调用者属于资料所在课程的成员。
+
+---
+
 ### 3.7 话题讨论
 
 #### 3.7.1 获取课程话题列表
@@ -965,6 +1026,33 @@ DELETE /api/topics/replies/{replyId}
 ```
 
 权限：作者本人或教师。软删除。
+
+---
+
+#### 3.7.8 开关话题讨论
+
+```
+PUT /api/topics/{topicId}/discussion
+```
+
+权限：教师。切换当前话题的讨论开关（`discussionEnabled` 字段）。
+
+**效果：** 关闭后学生不可在该话题下新增回复；已有回复不受影响。
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "title": "...",
+    "discussionEnabled": false,
+    ...
+  }
+}
+```
 
 ---
 
@@ -1131,6 +1219,59 @@ POST /api/assignments/{assignmentId}/ai-grade-batch
   }
 }
 ```
+
+---
+
+#### 3.9.5 查询批量任务列表
+
+```
+GET /api/assignments/{assignmentId}/ai-grade-batch/status
+```
+
+权限：教师。查询某作业的所有批量 AI 批阅任务（按创建时间倒序）。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "assignmentId": 1,
+      "teacherId": 1,
+      "status": "IN_PROGRESS",
+      "totalCount": 22,
+      "completedCount": 15,
+      "failedCount": 1,
+      "errorMessage": null,
+      "createTime": "2026-06-21T09:00:00",
+      "updateTime": "2026-06-21T09:05:30"
+    }
+  ]
+}
+```
+
+| status 值 | 说明 |
+|-----------|------|
+| `PENDING` | 等待执行 |
+| `IN_PROGRESS` | 正在执行 |
+| `COMPLETED` | 全部成功 |
+| `PARTIALLY_FAILED` | 部分失败 |
+| `FAILED` | 全部失败 |
+
+---
+
+#### 3.9.6 查询单个批量任务详情
+
+```
+GET /api/ai-grade-batch/{taskId}
+```
+
+权限：教师。查询指定批量任务的执行详情。
+
+**响应：** 返回单个 `GradingBatchTask` 对象，结构与 3.9.5 中的列表项一致。
 
 ---
 
@@ -1360,6 +1501,32 @@ DELETE /api/courses/{courseId}/ai-chat/sessions/{sessionId}
 
 ---
 
+#### 3.11.6 重建课程知识库
+
+```
+POST /api/courses/{courseId}/ai-chat/knowledge/rebuild
+```
+
+权限：教师。
+
+**效果：** 清空课程的现有知识库索引，重新拉取全部课程资料（Material + Assignment + Topic）执行文档分块 → Embedding → Qdrant 写入的全量重建。
+
+**适用场景：** 课程资料批量更新后、AI 答疑效果不佳时手动触发。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "message": "知识库重建已触发，请稍后查看"
+  }
+}
+```
+
+---
+
 ### 3.12 通知管理
 
 #### 3.12.1 获取通知列表
@@ -1369,6 +1536,17 @@ GET /api/notifications
 ```
 
 查询参数：`page`, `size`, `type`（可选，筛选类型）。
+
+| type 值 | 说明 |
+|----------|------|
+| `ASSIGNMENT_PUBLISHED` | 作业发布通知 |
+| `ASSIGNMENT_URGED` | 催交提醒 |
+| `ASSIGNMENT_GRADED` | 批阅完成通知 |
+| `ASSIGNMENT_RETURNED` | 作业退回通知 |
+| `AI_GRADED` | AI 预评分完成通知 |
+| `TOPIC_REPLY` | 话题回复通知 |
+| `COURSE_JOINED` | 新成员加入通知 |
+| `COURSE_ANNOUNCEMENT` | 课程公告 |
 
 ---
 
@@ -1462,6 +1640,29 @@ GET /api/files/{fileId}/preview
 
 ---
 
+### 3.14 健康检查
+
+#### 3.14.1 服务健康检查
+
+```
+GET /api/health
+```
+
+无需认证。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "OK"
+}
+```
+
+用于 Docker Compose 健康检查、负载均衡探测等。
+
+---
+
 ## 四、文件上传流程说明
 
 为避免孤儿文件（上传了但未关联到任何实体），采用 **"先上传，后关联"** 模式：
@@ -1482,10 +1683,12 @@ GET /api/files/{fileId}/preview
 | 接口前缀 | 未登录 | STUDENT | TEACHER | CREATOR |
 |----------|--------|---------|---------|---------|
 | `/api/auth/**` | ✅ | ✅ | ✅ | ✅ |
+| `/api/health` | ✅ | ✅ | ✅ | ✅ |
 | `/api/user/**` | — | ✅（本人） | ✅（本人） | ✅（本人） |
 | `/api/courses` GET | — | ✅（已加入） | ✅（已加入） | ✅（已加入） |
 | `/api/courses` 创建 | — | — | ✅ | ✅ |
 | `/api/courses/*` 修改/删除 | — | — | ✅（同课程） | ✅（自己的课） |
+| `/api/courses/*/members/*/role` | — | — | — | ✅（自己的课） |
 | `/api/assignments` 创建/修改 | — | — | ✅（同课程） | ✅（同课程） |
 | `/api/assignments` 查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
 | `/api/submissions` 提交 | — | ✅（本人） | — | — |
@@ -1495,7 +1698,9 @@ GET /api/files/{fileId}/preview
 | `/api/topics` 管理 | — | ✅（作者） | ✅（同课程） | ✅（同课程） |
 | `/api/drafts` | — | — | ✅（本人） | ✅（本人） |
 | `/api/ai-grading` | — | — | ✅（同课程） | ✅（同课程） |
-| `/api/ai-chat` | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/ai-grade-batch/**` | — | — | ✅（同课程） | ✅（同课程） |
+| `/api/ai-chat` 提问/查看 | — | ✅（同课程） | ✅（同课程） | ✅（同课程） |
+| `/api/ai-chat/knowledge/rebuild` | — | — | ✅（同课程） | ✅（同课程） |
 | `/api/similarity` | — | — | ✅（同课程） | ✅（同课程） |
 | `/api/notifications` | — | ✅（本人） | ✅（本人） | ✅（本人） |
 | `/api/files` 上传 | — | ✅ | ✅ | ✅ |
