@@ -268,6 +268,7 @@ CREATE TABLE IF NOT EXISTS `similarity_report` (
     `assignment_id` BIGINT NOT NULL COMMENT '关联作业',
     `total_submissions` INT NOT NULL COMMENT '参与比对的提交数',
     `threshold` DECIMAL(3,2) NOT NULL DEFAULT 0.80 COMMENT '相似度阈值',
+    `suspicious_count` INT NOT NULL DEFAULT 0 COMMENT '疑似抄袭对数',
     `generated_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '生成时间',
     PRIMARY KEY (`id`),
     KEY `idx_assignment_id` (`assignment_id`)

@@ -7,7 +7,7 @@ import {
 import {
   ArrowLeftOutlined, UploadOutlined, SendOutlined,
   CloseCircleOutlined, EditOutlined, FileTextOutlined,
-  ReloadOutlined, EyeOutlined, RobotOutlined, SettingOutlined,
+  ReloadOutlined, EyeOutlined, RobotOutlined, SettingOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { assignmentsApi, submissionsApi, filesApi, aiGradingApi, type Assignment, type Submission, type AiGradingConfig } from '../../api';
@@ -239,7 +239,7 @@ export default function AssignmentDetail() {
         )}
       </Card>
 
-      {/* Teacher Toolbar: AI Grading */}
+      {/* Teacher Toolbar: AI Grading + Similarity */}
       {teacherChecked && (
         <div style={{ marginBottom: 16 }}>
           <Space>
@@ -258,6 +258,12 @@ export default function AssignmentDetail() {
                 AI 批量批阅
               </Button>
             )}
+            <Button
+              icon={<SearchOutlined />}
+              onClick={() => navigate(`/courses/${courseId}/assignments/${assignmentId}/similarity`)}
+            >
+              相似度分析
+            </Button>
             {aiConfig ? (
               <Tag color={aiConfig.enabled ? 'blue' : 'default'}>
                 AI: {aiConfig.enabled ? '已启用' : '已禁用'}

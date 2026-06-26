@@ -43,6 +43,10 @@ public class SimilarityReport {
     @Builder.Default
     private BigDecimal threshold = new BigDecimal("0.80");
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer suspiciousCount = 0;
+
     @Column
     @Builder.Default
     private LocalDateTime generatedAt = LocalDateTime.now();

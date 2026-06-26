@@ -11,6 +11,7 @@ import NotificationCenter from './pages/NotificationCenter/NotificationCenter';
 import TopicDetail from './pages/TopicDetail/TopicDetail';
 import Drafts from './pages/Drafts/Drafts';
 import AiChat from './pages/AiChat/AiChat';
+import SimilarityAnalysis from './pages/SimilarityAnalysis/SimilarityAnalysis';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
         <Route path="notifications" element={<NotificationCenter />} />
         <Route path="drafts" element={<Drafts />} />
         <Route path="courses/:courseId/ai-chat" element={<AiChat />} />
+        <Route path="courses/:courseId/assignments/:assignmentId/similarity" element={<SimilarityAnalysis />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

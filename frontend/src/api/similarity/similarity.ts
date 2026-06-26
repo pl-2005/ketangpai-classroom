@@ -39,13 +39,8 @@ export interface AnalyzeRequest {
   threshold?: number;
 }
 
-export interface AnalyzeResponse {
-  reportId: number;
-  totalSubmissions: number;
-  threshold: number;
-  suspiciousCount: number;
-  generatedAt: string;
-}
+// AnalyzeResponse 复用 SimilarityReport（后端直接返回 SimilarityReport 实体）
+export type AnalyzeResponse = SimilarityReport;
 
 // ============ API 接口 ============
 export const similarityApi = {

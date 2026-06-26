@@ -8,7 +8,7 @@ import {
 import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
-  CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined,
+  CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import MaterialsTab from './MaterialsTab';
 import TopicsTab from './TopicsTab';
@@ -352,6 +352,13 @@ export default function CourseDetail() {
                                   >
                                     查看提交
                                   </Button>
+                                  <Button
+                                    size="small"
+                                    icon={<SearchOutlined />}
+                                    onClick={() => navigate(`/courses/${courseId}/assignments/${a.id}/similarity`)}
+                                  >
+                                    相似度
+                                  </Button>
                                   <Popconfirm title="确认关闭？" onConfirm={() => handleClose(a.id)}>
                                     <Button size="small" icon={<CloseCircleOutlined />}>关闭</Button>
                                   </Popconfirm>
@@ -363,12 +370,21 @@ export default function CourseDetail() {
                                 </>
                               )}
                               {a.status === 'CLOSED' && (
-                                <Button
-                                  size="small"
-                                  onClick={() => navigate(`/courses/${courseId}/assignments/${a.id}`)}
-                                >
-                                  查看提交
-                                </Button>
+                                <>
+                                  <Button
+                                    size="small"
+                                    onClick={() => navigate(`/courses/${courseId}/assignments/${a.id}`)}
+                                  >
+                                    查看提交
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    icon={<SearchOutlined />}
+                                    onClick={() => navigate(`/courses/${courseId}/assignments/${a.id}/similarity`)}
+                                  >
+                                    相似度
+                                  </Button>
+                                </>
                               )}
                             </>
                           )}
