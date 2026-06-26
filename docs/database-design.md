@@ -1,7 +1,7 @@
 # 课堂派 — 数据库设计文档
 
-> 版本：v1.1  
-> 日期：2026-06-23  
+> 版本：v1.2  
+> 日期：2026-06-26  
 > 数据库：MySQL 8.4 (InnoDB, utf8mb4)
 
 ---
@@ -702,6 +702,7 @@ CREATE TABLE `ai_grading_result` (
 | `assignment_id` | BIGINT | NOT NULL | 关联作业 |
 | `total_submissions` | INT | NOT NULL | 参与比对的提交数 |
 | `threshold` | DECIMAL(3,2) | NOT NULL DEFAULT 0.80 | 相似度阈值 |
+| `suspicious_count` | INT | NOT NULL DEFAULT 0 | 疑似抄袭对数（超阈值对数量） |
 | `generated_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | |
 
 **索引：** `idx_assignment_id`
@@ -714,6 +715,7 @@ CREATE TABLE `similarity_report` (
     `assignment_id` BIGINT NOT NULL,
     `total_submissions` INT NOT NULL,
     `threshold` DECIMAL(3,2) NOT NULL DEFAULT 0.80,
+    `suspicious_count` INT NOT NULL DEFAULT 0 COMMENT '疑似抄袭对数',
     `generated_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_assignment_id` (`assignment_id`)

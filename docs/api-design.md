@@ -1,7 +1,7 @@
 # 课堂派 — API 接口设计文档
 
-> 版本：v1.0  
-> 日期：2026-06-23  
+> 版本：v1.1  
+> 日期：2026-06-26  
 > 规范：RESTful，JSON 请求/响应，JWT Bearer Token 鉴权
 
 ---
@@ -1157,7 +1157,7 @@ POST /api/assignments/{assignmentId}/similarity/analyze
   "code": 200,
   "message": "相似度分析完成",
   "data": {
-    "reportId": 1,
+    "id": 1,
     "totalSubmissions": 22,
     "threshold": 0.80,
     "suspiciousCount": 3,
@@ -1200,7 +1200,9 @@ GET /api/similarity/reports/{reportId}
       "id": 1,
       "assignmentId": 1,
       "totalSubmissions": 22,
-      "threshold": 0.80
+      "threshold": 0.80,
+      "suspiciousCount": 3,
+      "generatedAt": "2026-06-21T10:00:00"
     },
     "pairs": [
       {
