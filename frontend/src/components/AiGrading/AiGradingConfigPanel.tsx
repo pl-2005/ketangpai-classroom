@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Modal, Switch, Radio, Button, Input, InputNumber, Tag,
-  Space, Typography, message, Spin, Popconfirm,
+  Space, Typography, App, Spin, Popconfirm,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { aiGradingApi, type GradingStyle, type RubricItem, type AiGradingConfig } from '../../api';
@@ -23,6 +23,7 @@ interface Props {
 }
 
 export default function AiGradingConfigPanel({ assignmentId, visible, onClose }: Props) {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [enabled, setEnabled] = useState(false);

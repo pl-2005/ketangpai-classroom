@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Table, Button, Tag, Select, Space, Typography, Modal, Form, Input,
-  InputNumber, DatePicker, Switch, message, Spin, Empty, Popconfirm,
+  InputNumber, DatePicker, Switch, App, Spin, Empty, Popconfirm,
 } from 'antd';
 import { PlusOutlined, EditOutlined, SendOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -27,6 +27,7 @@ const TYPE_COLORS: Record<DraftType, string> = {
 };
 
 export default function Drafts() {
+  const { message } = App.useApp();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<DraftType | undefined>(undefined);

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Row, Button, Modal, Form, Input, Switch,
-  Typography, Empty, message, Space, Spin, Card,
+  Typography, Empty, App, Space, Spin, Card,
 } from 'antd';
 import {
   PlusOutlined, UsergroupAddOutlined, BookOutlined,
@@ -24,6 +24,7 @@ import './CourseList.css';
 const { Title } = Typography;
 
 export default function CourseList() {
+  const { message } = App.useApp();
   const { user } = useAuth();
   const isTeacher = user?.role === 'TEACHER';
   const [courses, setCourses] = useState<Course[]>([]);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Input, Typography, Space, Tag, message,
+  Card, Button, Input, Typography, Space, Tag, App,
   List, Popconfirm, Empty, Spin, Divider,
 } from 'antd';
 import {
@@ -27,6 +27,7 @@ function parseReferences(raw: string | undefined): ChatReference[] {
 }
 
 export default function AiChat() {
+  const { message } = App.useApp();
   const { courseId } = useParams<{ courseId: string }>();
   const numCourseId = Number(courseId);
   const { user } = useAuth();

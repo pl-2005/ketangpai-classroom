@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Typography, Space, Tag, message,
+  Card, Button, Typography, Space, Tag, App,
   Spin, Empty, Table, Descriptions, InputNumber,
   Collapse, Alert, Popconfirm, Divider,
 } from 'antd';
@@ -32,6 +32,7 @@ function scoreTag(score: number) {
 }
 
 export default function SimilarityAnalysis() {
+  const { message } = App.useApp();
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
   const numCourseId = Number(courseId);
   const numAssignmentId = Number(assignmentId);

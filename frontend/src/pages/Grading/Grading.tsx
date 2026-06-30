@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Descriptions, Tag, Input, InputNumber, Table,
-  message, Spin, Empty, Typography, Space, Divider, Popconfirm,
+  App, Spin, Empty, Typography, Space, Divider, Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined, CheckOutlined, RollbackOutlined,
@@ -15,6 +15,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 export default function Grading() {
+  const { message } = App.useApp();
   const { courseId, assignmentId, submissionId } = useParams<{
     courseId: string; assignmentId: string; submissionId: string;
   }>();

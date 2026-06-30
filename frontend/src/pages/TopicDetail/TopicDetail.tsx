@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Tag, Space, Typography, Input, Switch, Modal, Form,
-  message, Spin, Empty, Popconfirm, List, Divider,
+  App, Spin, Empty, Popconfirm, List, Divider,
 } from 'antd';
 import {
   ArrowLeftOutlined, PushpinOutlined, LockOutlined, UnlockOutlined,
@@ -21,6 +21,7 @@ const { Text, Paragraph, Title } = Typography;
 const { TextArea } = Input;
 
 export default function TopicDetail() {
+  const { message } = App.useApp();
   const { courseId, topicId } = useParams<{ courseId: string; topicId: string }>();
   const numCourseId = Number(courseId);
   const numTopicId = Number(topicId);

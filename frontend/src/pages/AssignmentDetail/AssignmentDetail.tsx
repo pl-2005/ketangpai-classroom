@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Typography, Space, Descriptions, Tag, Input, Upload,
-  message, Spin, Empty, Divider, Table, Modal, Popconfirm,
+  App, Spin, Empty, Divider, Table, Modal, Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined, UploadOutlined, SendOutlined,
@@ -19,6 +19,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 export default function AssignmentDetail() {
+  const { message } = App.useApp();
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
   const numCourseId = Number(courseId);
   const numAssignmentId = Number(assignmentId);
