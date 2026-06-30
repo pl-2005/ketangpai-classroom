@@ -88,7 +88,7 @@ export default function AiChat() {
       });
       setSessions(sessions);
     } catch {
-      // ignore
+      message.error('获取对话列表失败');
     } finally {
       setSessionsLoading(false);
     }

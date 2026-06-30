@@ -32,7 +32,7 @@ export default function TopicsTab({ courseId }: Props) {
       const list = Array.isArray(data) ? data : (data?.content || []);
       setTopics(list);
     } catch {
-      // handled
+      message.error('获取话题列表失败');
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function TopicsTab({ courseId }: Props) {
       createForm.resetFields();
       fetchTopics();
     } catch {
-      // handled
+      message.error('创建话题失败');
     } finally {
       setSubmitting(false);
     }

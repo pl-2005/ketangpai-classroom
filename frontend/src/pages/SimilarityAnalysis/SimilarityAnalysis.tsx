@@ -79,7 +79,7 @@ export default function SimilarityAnalysis() {
         setReport(null);
       }
     } catch {
-      // ignore
+      message.error('获取相似度分析数据失败');
     } finally {
       setLoading(false);
     }

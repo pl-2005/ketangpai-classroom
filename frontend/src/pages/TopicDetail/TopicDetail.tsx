@@ -57,7 +57,7 @@ export default function TopicDetail() {
       const replyList = Array.isArray(data.replies) ? data.replies : (data.replies?.content || []);
       setReplies(replyList);
     } catch {
-      // handled
+      message.error('获取话题详情失败');
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,7 @@ export default function TopicDetail() {
       setReplyParentAuthor('');
       fetchTopic();
     } catch {
-      // handled
+      message.error('回复失败');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +108,7 @@ export default function TopicDetail() {
       await topicsApi.updateTopicStatus(numTopicId, { status });
       message.success('状态已更新');
       fetchTopic();
-    } catch { /* handled */ }
+    } catch { message.error('状态更新失败'); }
   };
 
   const handleToggleDiscussion = async () => {
@@ -116,7 +116,7 @@ export default function TopicDetail() {
       const res = await topicsApi.toggleDiscussion(numTopicId) as unknown as Topic;
       message.success(res.discussionEnabled ? '已开启讨论' : '已关闭讨论');
       fetchTopic();
-    } catch { /* handled */ }
+    } catch { message.error('操作失败'); }
   };
 
   const handleDeleteTopic = async () => {
@@ -124,7 +124,7 @@ export default function TopicDetail() {
       await topicsApi.deleteTopic(numTopicId);
       message.success('话题已删除');
       navigate(`/courses/${courseId}`);
-    } catch { /* handled */ }
+    } catch { message.error('删除话题失败'); }
   };
 
   const handleEditTopic = async (values: Record<string, unknown>) => {
@@ -136,7 +136,7 @@ export default function TopicDetail() {
       message.success('话题已更新');
       setEditOpen(false);
       fetchTopic();
-    } catch { /* handled */ }
+    } catch { message.error('编辑话题失败'); }
   };
 
   const handleDeleteReply = async (replyId: number) => {
@@ -144,7 +144,7 @@ export default function TopicDetail() {
       await topicsApi.deleteReply(replyId);
       message.success('回复已删除');
       fetchTopic();
-    } catch { /* handled */ }
+    } catch { message.error('删除回复失败'); }
   };
 
   const handleEditReply = async () => {
