@@ -1,0 +1,12 @@
+/* 拖拽时浮层卡片的样式 */
+.course-card-drag-overlay {
+  width: 320px;
+  cursor: grabbing;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.course-card-drag-overlay .ant-card {
+  border-radius: 8px;
+  transform: scale(1.02);
+}

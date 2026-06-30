@@ -10,6 +10,7 @@ import com.ketangpai.dto.course.CreateCourseRequest;
 import com.ketangpai.dto.course.JoinCourseRequest;
 import com.ketangpai.dto.course.UpdateCourseMemberRoleRequest;
 import com.ketangpai.dto.course.UpdateCourseRequest;
+import com.ketangpai.dto.course.UpdateSortOrderRequest;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.entity.CourseMember;
 import com.ketangpai.model.enums.CourseMemberRole;
@@ -110,6 +111,15 @@ public class CourseController {
             @PathVariable Long courseId,
             @Valid @RequestBody CourseActionRequest request) {
         courseService.performAction(courseId, userId, request.action());
+        return Result.ok();
+    }
+
+    /** 批量更新课程卡片排序，courseIds 的顺序即为新的排序。 */
+    @PutMapping("/sort-order")
+    public Result<Void> updateSortOrder(
+            @CurrentUserId Long userId,
+            @Valid @RequestBody UpdateSortOrderRequest request) {
+        courseService.updateSortOrder(userId, request.courseIds());
         return Result.ok();
     }
 

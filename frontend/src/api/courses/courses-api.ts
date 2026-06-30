@@ -53,6 +53,10 @@ export interface UpdateMemberRoleRequest {
   role: 'TEACHER' | 'STUDENT';
 }
 
+export interface UpdateSortOrderRequest {
+  courseIds: number[];
+}
+
 export interface GetCoursesParams {
   archived?: boolean;
   page?: number;
@@ -97,6 +101,10 @@ export const courseApi = {
 
   updateMemberRole: (courseId: number, memberUserId: number, data: UpdateMemberRoleRequest) => {
     return request.put(`/api/courses/${courseId}/members/${memberUserId}/role`, data);
+  },
+
+  updateSortOrder: (data: UpdateSortOrderRequest) => {
+    return request.put('/api/courses/sort-order', data);
   },
 };
 

@@ -1,16 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Row, Col, Card, Button, Modal, Form, Input, Switch,
-  Typography, Empty, message, Space, Tag, Spin,
+  Row, Button, Modal, Form, Input, Switch,
+  Typography, Empty, message, Space, Spin, Card,
 } from 'antd';
 import {
   PlusOutlined, UsergroupAddOutlined, BookOutlined,
-  TeamOutlined, CrownOutlined,
 } from '@ant-design/icons';
+import {
+  DndContext, DragOverlay, closestCenter,
+  PointerSensor, KeyboardSensor, useSensor, useSensors,
+  type DragStartEvent, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, rectSortingStrategy,
+  sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable';
 import { courseApi, type Course } from '../../api';
+import SortableCourseCard from './SortableCourseCard';
+import './CourseList.css';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function CourseList() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -19,11 +29,24 @@ export default function CourseList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [activeId, setActiveId] = useState<number | null>(null);
   const [createForm] = Form.useForm();
   const [joinForm] = Form.useForm();
   const navigate = useNavigate();
 
-  const fetchCourses = async () => {
+  // 拖拽传感器：需要移动 5px 才激活拖拽，小于 5px 视为点击
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
       const result = await courseApi.getMyCourses({
@@ -36,11 +59,50 @@ export default function CourseList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showArchived]);
 
   useEffect(() => {
     fetchCourses();
-  }, [showArchived]);
+  }, [fetchCourses]);
+
+  // ---- 拖拽事件处理 ----
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(Number(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) {
+      return; // 未移动，无需处理
+    }
+
+    const oldIndex = courses.findIndex((c) => c.id === Number(active.id));
+    const newIndex = courses.findIndex((c) => c.id === Number(over.id));
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // 乐观更新：立即更新本地状态
+    const reordered = arrayMove(courses, oldIndex, newIndex);
+    setCourses(reordered);
+
+    // 持久化到后端，失败则回滚
+    const courseIds = reordered.map((c) => c.id);
+    courseApi.updateSortOrder({ courseIds }).catch(() => {
+      message.error('排序更新失败');
+      fetchCourses();
+    });
+  }, [courses, fetchCourses]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  // ---- 课程操作 ----
 
   const handleCreate = async (values: { name: string; description?: string }) => {
     setSubmitting(true);
@@ -69,17 +131,6 @@ export default function CourseList() {
       message.error('加入课程失败，请检查课程号');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const roleTag = (role: string) => {
-    switch (role) {
-      case 'CREATOR':
-        return <Tag color="gold" icon={<CrownOutlined />}>创建者</Tag>;
-      case 'TEACHER':
-        return <Tag color="blue">教师</Tag>;
-      default:
-        return <Tag color="green">学生</Tag>;
     }
   };
 
@@ -112,51 +163,51 @@ export default function CourseList() {
           style={{ padding: 60 }}
         />
       ) : (
-        <Row gutter={[16, 16]}>
-          {courses.map((course) => (
-            <Col key={course.id} xs={24} sm={12} md={8} lg={6}>
-              <Card
-                hoverable
-                onClick={() => navigate(`/courses/${course.id}`)}
-                cover={
-                  <div
-                    style={{
-                      height: 120,
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <BookOutlined style={{ fontSize: 40, color: '#fff', opacity: 0.8 }} />
-                  </div>
-                }
-              >
-                <Card.Meta
-                  title={
-                    <Space>
-                      <Text strong ellipsis style={{ maxWidth: 140 }}>{course.name}</Text>
-                      {roleTag(course.role)}
-                    </Space>
-                  }
-                  description={
-                    <div>
-                      <div style={{ marginBottom: 4 }}>
-                        <Text type="secondary" copyable={{ text: course.courseCode }}>
-                          课程号：{course.courseCode}
-                        </Text>
-                      </div>
-                      <Space>
-                        <span><TeamOutlined /> {course.memberCount} 人</span>
-                        {course.status === 'ARCHIVED' && <Tag color="orange">已归档</Tag>}
-                      </Space>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={courses.map((c) => c.id)}
+            strategy={rectSortingStrategy}
+          >
+            <Row gutter={[16, 16]}>
+              {courses.map((course) => (
+                <SortableCourseCard key={course.id} course={course} />
+              ))}
+            </Row>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeId != null ? (
+              <div className="course-card-drag-overlay">
+                <Card
+                  cover={
+                    <div
+                      style={{
+                        height: 120,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <BookOutlined style={{ fontSize: 40, color: '#fff', opacity: 0.8 }} />
                     </div>
                   }
-                />
-              </Card>
-            </Col>
-          ))}
-        </Row>
+                >
+                  <Card.Meta
+                    title={courses.find((c) => c.id === activeId)?.name ?? ''}
+                    description="拖拽到目标位置"
+                  />
+                </Card>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* Create Course Modal */}

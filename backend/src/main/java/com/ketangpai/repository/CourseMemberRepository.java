@@ -50,6 +50,10 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
     @Query("SELECT COUNT(cm) FROM CourseMember cm WHERE cm.courseId = :courseId AND cm.deleted = false")
     long countActiveMembersByCourseId(@Param("courseId") Long courseId);
 
+    /** 批量查询用户在某组课程中的成员关系，用于排序更新。 */
+    @Query("SELECT cm FROM CourseMember cm WHERE cm.userId = :userId AND cm.courseId IN :courseIds AND cm.deleted = false")
+    List<CourseMember> findByUserIdAndCourseIdIn(@Param("userId") Long userId, @Param("courseIds") List<Long> courseIds);
+
     /**
      * 查询课程卡片。全局归档课程始终进入归档视图，个人归档只影响当前成员。
      */

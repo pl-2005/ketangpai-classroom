@@ -22,7 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 课程管理服务。
@@ -177,6 +180,32 @@ public class CourseService extends BaseService {
             case LEAVE -> leaveCourse(courseId, userId);
             case DELETE -> deleteCourse(courseId, userId);
         }
+    }
+
+    /**
+     * 批量更新当前用户的课程卡片排序。
+     * courseIds 列表的顺序即为新的排序顺序，从 0 开始递增赋值 sortOrder。
+     */
+    @Transactional
+    public void updateSortOrder(Long userId, List<Long> courseIds) {
+        List<CourseMember> members = courseMemberRepository.findByUserIdAndCourseIdIn(userId, courseIds);
+
+        Map<Long, CourseMember> memberMap = members.stream()
+                .collect(Collectors.toMap(CourseMember::getCourseId, cm -> cm));
+
+        for (Long courseId : courseIds) {
+            CourseMember cm = memberMap.get(courseId);
+            if (cm == null) {
+                throw new BusinessException(403, "你不是课程 " + courseId + " 的成员");
+            }
+        }
+
+        for (int i = 0; i < courseIds.size(); i++) {
+            CourseMember cm = memberMap.get(courseIds.get(i));
+            cm.setSortOrder(i);
+        }
+
+        courseMemberRepository.saveAll(members);
     }
 
     private CourseMember restoreFormerMember(CourseMember member) {
