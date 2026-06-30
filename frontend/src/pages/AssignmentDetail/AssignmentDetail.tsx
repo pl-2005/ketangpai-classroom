@@ -65,26 +65,44 @@ export default function AssignmentDetail() {
     }
   };
 
+  // 获取学生自己的提交（可从外部调用刷新）
+  const fetchMySubmission = async () => {
+    if (!user || user.role !== 'STUDENT') return;
+    try {
+      const data = await submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[];
+      if (Array.isArray(data) && data.length > 0) {
+        setMySubmission(data[0]);
+      }
+    } catch {
+      // 静默处理
+    }
+  };
+
   useEffect(() => {
-    // Check role
-    const checkRole = async () => {
+    if (!user) return;
+
+    const isTeacher = user.role === 'TEACHER';
+    setTeacherChecked(isTeacher);
+
+    const fetchSubmissions = async () => {
       try {
         const data = await submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[];
         if (Array.isArray(data)) {
-          setTeacherChecked(true);
-          setSubmissions(data);
-          if (user) {
+          if (isTeacher) {
+            setSubmissions(data);
             const mine = data.find((s: Submission) => s.studentId === user.id);
             if (mine) setMySubmission(mine);
+          } else if (data.length > 0) {
+            // 学生：后端仅返回自己的提交
+            setMySubmission(data[0]);
           }
         }
       } catch {
-        // 非教师角色无法查看提交列表，静默处理
-        setTeacherChecked(false);
+        // 获取提交失败，静默处理
       }
     };
-    checkRole();
-  }, [assignmentId]);
+    fetchSubmissions();
+  }, [assignmentId, user]);
 
   useEffect(() => {
     fetchData();
@@ -130,13 +148,17 @@ export default function AssignmentDetail() {
     }
     setSubmitting(true);
     try {
-      await submissionsApi.submitAssignment(numAssignmentId, {
+      const result: any = await submissionsApi.submitAssignment(numAssignmentId, {
         content: content.trim() || undefined,
         fileIds: fileList.length > 0 ? fileList : undefined,
       });
       message.success('提交成功');
       setContent('');
       setUploadedFiles([]);
+      // 立即使用返回的 Submission 更新 mySubmission，切换为已提交视图
+      if (result) setMySubmission(result as Submission);
+      // 再次获取提交以确保数据完整（含文件、AI 批阅等）
+      fetchMySubmission();
       fetchData();
     } catch {
       message.error('提交失败');

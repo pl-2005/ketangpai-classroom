@@ -1,6 +1,7 @@
 package com.ketangpai.service;
 
 import com.ketangpai.model.entity.Assignment;
+import com.ketangpai.model.entity.CourseMember;
 import com.ketangpai.model.entity.Submission;
 import com.ketangpai.model.entity.SubmissionFile;
 import com.ketangpai.model.entity.TempFile;
@@ -127,12 +128,22 @@ public class SubmissionService extends BaseService {
         return submission;
     }
 
-    /** 获取某作业的全部提交（仅教师可查看） */
+    /** 获取某作业的提交（教师返回全部，学生返回自己的提交） */
     public List<Submission> listByAssignment(Long assignmentId, Long userId, String statusFilter) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(404, "作业不存在"));
-        checkTeacher(assignment.getCourseId(), userId);
 
+        // 检查用户是教师还是学生
+        CourseMember member = getMemberOrThrow(assignment.getCourseId(), userId);
+        boolean isStudent = member.getRole() == CourseMemberRole.STUDENT;
+
+        if (isStudent) {
+            // 学生仅返回自己的提交
+            return submissionRepository.findByAssignmentIdAndStudentId(assignmentId, userId)
+                    .stream().toList();
+        }
+
+        // 教师（含创建者）返回全部提交
         if (statusFilter != null) {
             SubmissionStatus status = SubmissionStatus.valueOf(statusFilter);
             return submissionRepository.findByAssignmentId(assignmentId).stream()
