@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Table, Button, Tag, Select, Space, Typography, Modal, Form, Input,
-  InputNumber, DatePicker, Switch, App, Spin, Empty, Popconfirm,
+  InputNumber, DatePicker, Switch, message, Spin, Empty, Popconfirm, Upload,
 } from 'antd';
 import { PlusOutlined, EditOutlined, SendOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
+import { filesApi } from '../../api';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
@@ -27,7 +28,6 @@ const TYPE_COLORS: Record<DraftType, string> = {
 };
 
 export default function Drafts() {
-  const { message } = App.useApp();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<DraftType | undefined>(undefined);
@@ -38,6 +38,7 @@ export default function Drafts() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [draftType, setDraftType] = useState<DraftType>('ASSIGNMENT');
+  const [uploading, setUploading] = useState(false);
 
   // Publish modal
   const [publishOpen, setPublishOpen] = useState(false);
@@ -101,6 +102,30 @@ export default function Drafts() {
     } catch {
       return {};
     }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const res = await filesApi.uploadFile(file) as unknown as {
+        id: number;
+        fileName: string;
+        fileUrl: string;
+        fileSize: number;
+      };
+      form.setFieldsValue({
+        title: res.fileName,
+        fileUrl: res.fileUrl,
+        fileSize: res.fileSize,
+        fileId: res.id,
+      });
+      message.success('文件上传成功');
+    } catch {
+      message.error('文件上传失败');
+    } finally {
+      setUploading(false);
+    }
+    return false;
   };
 
   const handleCreate = () => {
@@ -307,11 +332,43 @@ export default function Drafts() {
 
           {draftType === 'MATERIAL' && (
             <>
-              <Form.Item name="materialType" label="资料类型" initialValue="FILE">
-                <Select options={[{ value: 'FILE', label: '文件' }, { value: 'LINK', label: '链接' }]} />
+              <Form.Item name="materialType" label="类型" rules={[{ required: true }]} initialValue="FILE">
+                <Select options={[
+                  { value: 'FILE', label: '文件' },
+                  { value: 'LINK', label: '链接' },
+                ]} />
               </Form.Item>
-              <Form.Item name="content" label="描述">
-                <Input.TextArea rows={2} placeholder="资料描述..." />
+
+              <Form.Item noStyle shouldUpdate={(prev, cur) => prev.materialType !== cur.materialType}>
+                {({ getFieldValue }) => {
+                  const type = getFieldValue('materialType');
+                  if (type === 'LINK') {
+                    return (
+                      <Form.Item name="linkUrl" label="链接地址" rules={[{ required: true, message: '请输入链接' }]}>
+                        <Input placeholder="https://..." />
+                      </Form.Item>
+                    );
+                  }
+                  return (
+                    <>
+                      <Form.Item label="上传文件">
+                        <Upload
+                          beforeUpload={(file) => { handleFileUpload(file); return false; }}
+                          showUploadList={!!form.getFieldValue('fileUrl')}
+                          maxCount={1}
+                          onRemove={() => {
+                            form.setFieldsValue({ fileUrl: undefined, fileSize: undefined, fileId: undefined });
+                          }}
+                        >
+                          <Button icon={<PlusOutlined />} loading={uploading}>选择文件</Button>
+                        </Upload>
+                      </Form.Item>
+                      <Form.Item name="fileUrl" hidden><Input /></Form.Item>
+                      <Form.Item name="fileSize" hidden><Input /></Form.Item>
+                      <Form.Item name="fileId" hidden><Input /></Form.Item>
+                    </>
+                  );
+                }}
               </Form.Item>
             </>
           )}
