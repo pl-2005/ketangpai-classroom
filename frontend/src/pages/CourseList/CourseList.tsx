@@ -181,7 +181,7 @@ export default function CourseList() {
           >
             <Row gutter={[16, 16]}>
               {courses.map((course) => (
-                <SortableCourseCard key={course.id} course={course} onRefresh={fetchCourses} />
+                <SortableCourseCard key={course.id} course={course} />
               ))}
             </Row>
           </SortableContext>

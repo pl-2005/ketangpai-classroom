@@ -1,18 +1,16 @@
-import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Col, Card, Tag, Space, Typography, Button, message, Tooltip, Popconfirm } from 'antd';
+import { Col, Card, Tag, Space, Typography } from 'antd';
 import {
-  BookOutlined, TeamOutlined, CrownOutlined, InboxOutlined, UndoOutlined, DeleteOutlined,
+  BookOutlined, TeamOutlined, CrownOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { courseApi, type Course, type CourseAction } from '../../api';
+import type { Course } from '../../api';
 
 const { Text } = Typography;
 
 interface SortableCourseCardProps {
   course: Course;
-  onRefresh: () => void;
 }
 
 /**
@@ -21,9 +19,8 @@ interface SortableCourseCardProps {
  * 拖拽激活阈值 5px 由父组件 DndContext 的 PointerSensor 控制，
  * 区分点击导航和拖拽排序。
  */
-export default function SortableCourseCard({ course, onRefresh }: SortableCourseCardProps) {
+export default function SortableCourseCard({ course }: SortableCourseCardProps) {
   const navigate = useNavigate();
-  const [archiving, setArchiving] = useState(false);
   const {
     attributes,
     listeners,
@@ -51,95 +48,6 @@ export default function SortableCourseCard({ course, onRefresh }: SortableCourse
     }
   };
 
-  const doAction = async (action: CourseAction, label: string) => {
-    setArchiving(true);
-    try {
-      await courseApi.courseAction(course.id, { action });
-      message.success(`${label}成功`);
-      onRefresh();
-    } catch {
-      message.error(`${label}失败`);
-    } finally {
-      setArchiving(false);
-    }
-  };
-
-  const handlePersonalArchive = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (course.isArchived) {
-      doAction('UNARCHIVE', '取消归档');
-    } else {
-      doAction('ARCHIVE', '个人归档');
-    }
-  };
-
-  const isCreator = course.role === 'CREATOR';
-  const isCourseArchived = course.status === 'ARCHIVED';
-
-  // 底部操作按钮
-  const cardActions: React.ReactNode[] = [];
-
-  if (isCreator && isCourseArchived) {
-    // 创建者查看已归档课程：恢复 + 永久删除
-    cardActions.push(
-      <Popconfirm
-        key="restore"
-        title="确认恢复课程为活跃状态？"
-        onConfirm={() => doAction('RESTORE_FOR_ALL', '恢复课程')}
-        okText="确认恢复"
-        cancelText="取消"
-      >
-        <Tooltip title="恢复课程">
-          <Button
-            type="text"
-            size="small"
-            icon={<UndoOutlined />}
-            loading={archiving}
-            onClick={(e) => e.stopPropagation()}
-            style={{ fontSize: 14, color: '#1677ff' }}
-          />
-        </Tooltip>
-      </Popconfirm>,
-    );
-    cardActions.push(
-      <Popconfirm
-        key="delete"
-        title="永久删除后无法恢复，确认删除？"
-        description="课程及所有作业、资料将被永久删除"
-        onConfirm={() => doAction('DELETE', '删除课程')}
-        okText="确认删除"
-        okButtonProps={{ danger: true }}
-        cancelText="取消"
-      >
-        <Tooltip title="永久删除">
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            loading={archiving}
-            onClick={(e) => e.stopPropagation()}
-            style={{ fontSize: 14 }}
-          />
-        </Tooltip>
-      </Popconfirm>,
-    );
-  } else {
-    // 普通成员或活跃课程：个人归档/取消归档
-    cardActions.push(
-      <Tooltip title={course.isArchived ? '取消归档' : '归档'} key="archive">
-        <Button
-          type="text"
-          size="small"
-          icon={course.isArchived ? <UndoOutlined /> : <InboxOutlined />}
-          loading={archiving}
-          onClick={handlePersonalArchive}
-          style={{ fontSize: 14 }}
-        />
-      </Tooltip>,
-    );
-  }
-
   return (
     <Col
       xs={24} sm={12} md={8} lg={6}
@@ -164,7 +72,6 @@ export default function SortableCourseCard({ course, onRefresh }: SortableCourse
             <BookOutlined style={{ fontSize: 40, color: '#fff', opacity: 0.8 }} />
           </div>
         }
-        actions={cardActions}
       >
         <Card.Meta
           title={
@@ -182,7 +89,7 @@ export default function SortableCourseCard({ course, onRefresh }: SortableCourse
               </div>
               <Space>
                 <span><TeamOutlined /> {course.memberCount} 人</span>
-                {isCourseArchived && <Tag color="orange">已归档</Tag>}
+                {course.status === 'ARCHIVED' && <Tag color="orange">已归档</Tag>}
               </Space>
             </div>
           }
