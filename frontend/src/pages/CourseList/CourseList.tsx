@@ -17,12 +17,15 @@ import {
   sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { courseApi, type Course } from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 import SortableCourseCard from './SortableCourseCard';
 import './CourseList.css';
 
 const { Title } = Typography;
 
 export default function CourseList() {
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'TEACHER';
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
@@ -148,9 +151,11 @@ export default function CourseList() {
           <Button icon={<UsergroupAddOutlined />} onClick={() => setJoinOpen(true)}>
             加入课程
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-            创建课程
-          </Button>
+          {isTeacher && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+              创建课程
+            </Button>
+          )}
         </Space>
       </div>
 
