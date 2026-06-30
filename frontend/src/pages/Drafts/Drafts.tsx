@@ -50,7 +50,7 @@ export default function Drafts() {
       const data = await draftsApi.getDrafts({ type: typeFilter }) as unknown as Draft[];
       setDrafts(Array.isArray(data) ? data : []);
     } catch {
-      // handled
+      message.error('获取草稿列表失败');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function Drafts() {
     try {
       const data = await courseApi.getMyCourses({ size: 100 }) as unknown as { content: Course[] };
       setCourses(data?.content || []);
-    } catch { /* handled */ }
+    } catch { message.error('获取课程列表失败'); }
   };
 
   const buildContentJson = (values: Record<string, unknown>, type: DraftType): string => {
@@ -144,7 +144,7 @@ export default function Drafts() {
       setModalOpen(false);
       fetchDrafts();
     } catch {
-      // handled
+      message.error(editingId ? '更新草稿失败' : '创建草稿失败');
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +155,7 @@ export default function Drafts() {
       await draftsApi.deleteDraft(draftId);
       message.success('草稿已删除');
       fetchDrafts();
-    } catch { /* handled */ }
+    } catch { message.error('删除草稿失败'); }
   };
 
   const handlePublishOpen = async (draftId: number) => {
@@ -177,7 +177,7 @@ export default function Drafts() {
       setPublishOpen(false);
       fetchDrafts();
     } catch {
-      // handled
+      message.error('发布失败');
     } finally {
       setSubmitting(false);
     }

@@ -79,6 +79,7 @@ export default function AssignmentDetail() {
           }
         }
       } catch {
+        // 非教师角色无法查看提交列表，静默处理
         setTeacherChecked(false);
       }
     };
@@ -92,9 +93,15 @@ export default function AssignmentDetail() {
   // Fetch AI config in teacher view
   useEffect(() => {
     if (teacherChecked) {
-      aiGradingApi.getAiGradingConfig(numAssignmentId).then((data: any) => {
-        if (data?.assignmentId) setAiConfig(data);
-      }).catch(() => {});
+      const fetchAiConfig = async () => {
+        try {
+          const data: any = await aiGradingApi.getAiGradingConfig(numAssignmentId);
+          if (data?.assignmentId) setAiConfig(data);
+        } catch {
+          // AI 配置获取失败，非关键功能，静默处理
+        }
+      };
+      fetchAiConfig();
     }
   }, [teacherChecked]);
 

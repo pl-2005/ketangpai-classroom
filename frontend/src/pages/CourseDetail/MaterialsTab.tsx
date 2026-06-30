@@ -47,7 +47,7 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       const data = await materialsApi.getMaterialTree(courseId) as unknown as TreeNodeData[];
       setTreeData(data || []);
     } catch {
-      // handled by interceptor
+      message.error('获取课程资料失败');
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       setFolderOpen(false);
       folderForm.resetFields();
       fetchTree();
-    } catch { /* handled */ } finally {
+    } catch {
+      message.error('创建文件夹失败');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -206,7 +208,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       await materialsApi.deleteFolder(folderId);
       message.success('文件夹已删除');
       fetchTree();
-    } catch { /* handled */ }
+    } catch {
+      message.error('删除文件夹失败');
+    }
   };
 
   // Material CRUD
@@ -235,7 +239,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       setMaterialOpen(false);
       materialForm.resetFields();
       fetchTree();
-    } catch { /* handled */ } finally {
+    } catch {
+      message.error('创建资料失败');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -245,7 +251,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       await materialsApi.deleteMaterial(materialId);
       message.success('资料已删除');
       fetchTree();
-    } catch { /* handled */ }
+    } catch {
+      message.error('删除资料失败');
+    }
   };
 
   // File upload
@@ -293,7 +301,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       message.success('重命名成功');
       setRenameOpen(false);
       fetchTree();
-    } catch { /* handled */ } finally {
+    } catch {
+      message.error('重命名失败');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -315,7 +325,9 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
       message.success('移动成功');
       setMoveOpen(false);
       fetchTree();
-    } catch { /* handled */ } finally {
+    } catch {
+      message.error('移动失败');
+    } finally {
       setSubmitting(false);
     }
   };

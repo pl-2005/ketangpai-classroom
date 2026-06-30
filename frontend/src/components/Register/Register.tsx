@@ -30,9 +30,9 @@ const Register = () => {
         message.success('注册成功，请登录');
         window.location.href = '/login';
       }
-    } catch (error) {
-      // axios 拦截器已显示具体错误消息，此处仅记录日志
-      console.error('注册失败:', error);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || '注册失败，请稍后重试';
+      message.error(msg);
     } finally {
       setLoading(false);
     }

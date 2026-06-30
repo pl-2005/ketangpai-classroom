@@ -53,7 +53,7 @@ export default function NotificationCenter() {
       setNotifications(data.content || []);
       setPagination({ current: page, pageSize: size, total: data.totalElements || 0 });
     } catch {
-      // 错误由 request 拦截器处理
+      message.error('获取通知列表失败');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function NotificationCenter() {
       message.success('已标记为已读');
       fetchNotifications(pagination.current, pagination.pageSize, typeFilter);
     } catch {
-      // 错误已处理
+      message.error('标记已读失败');
     }
   };
 
@@ -83,7 +83,7 @@ export default function NotificationCenter() {
       message.success('已全部标记为已读');
       fetchNotifications(1, pagination.pageSize, typeFilter);
     } catch {
-      // 错误已处理
+      message.error('全部标记已读失败');
     }
   };
 
@@ -93,7 +93,7 @@ export default function NotificationCenter() {
       message.success('已删除');
       fetchNotifications(pagination.current, pagination.pageSize, typeFilter);
     } catch {
-      // 错误已处理
+      message.error('删除通知失败');
     }
   };
 

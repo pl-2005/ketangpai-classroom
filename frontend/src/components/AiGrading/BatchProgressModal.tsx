@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Modal, Progress, Typography, Tag, Button, Space } from 'antd';
+import { Modal, Progress, Typography, Tag, Button, Space, message } from 'antd';
 import { LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { aiGradingApi, type GradingBatchTask } from '../../api';
 
@@ -39,8 +39,7 @@ export default function BatchProgressModal({ assignmentId, visible, onClose }: P
       setTask(result);
       startPolling(result.id);
     } catch (e: any) {
-      // If the error response contains data (e.g., GradingBatchTask), use it
-      // Otherwise show error
+      message.error('启动 AI 批量批阅失败');
       setTask(null);
     }
   };
