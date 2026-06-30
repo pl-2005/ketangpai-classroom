@@ -1,6 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { message } from 'antd';
-import { STATUS_CODE, STATUS_CODE_MESSAGE } from '../constants/statusCode';
+import { STATUS_CODE } from '../constants/statusCode';
 
 // ============ 通用响应类型 ============
 export interface ApiResponse<T = unknown> {
@@ -49,8 +48,6 @@ instance.interceptors.response.use(
       return data.data;
     }
 
-    message.error(data.message || '请求失败');
-
     if (data.code === STATUS_CODE.UNAUTHORIZED) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -64,33 +61,15 @@ instance.interceptors.response.use(
     // 优先使用后端返回的具体错误消息
     const serverMessage = (error.response?.data as { message?: string })?.message;
 
-    switch (status) {
-      case STATUS_CODE.UNAUTHORIZED:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.UNAUTHORIZED]);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        break;
-      case STATUS_CODE.BAD_REQUEST:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.BAD_REQUEST]);
-        break;
-      case STATUS_CODE.FORBIDDEN:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.FORBIDDEN]);
-        break;
-      case STATUS_CODE.NOT_FOUND:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.NOT_FOUND]);
-        break;
-      case STATUS_CODE.CONFLICT:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.CONFLICT]);
-        break;
-      case STATUS_CODE.INTERNAL_SERVER_ERROR:
-        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.INTERNAL_SERVER_ERROR]);
-        break;
-      default:
-        message.error(serverMessage || error.message || '网络错误');
+    if (status === STATUS_CODE.UNAUTHORIZED) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
     }
 
-    return Promise.reject(error);
+    // 将后端消息或状态信息附加到 error 上，由组件决定如何提示
+    const enrichedError = new Error(serverMessage || error.message || '网络错误');
+    return Promise.reject(enrichedError);
   }
 );
 
