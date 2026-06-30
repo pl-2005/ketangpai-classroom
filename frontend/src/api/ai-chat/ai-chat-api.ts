@@ -1,4 +1,4 @@
-import request from '../../utils/request';
+import request, { fetchSSE, type SSECallbacks } from '../../utils/request';
 
 // ============ 类型定义 ============
 export type ChatRole = 'USER' | 'ASSISTANT';
@@ -46,6 +46,11 @@ export const aiChatApi = {
 
   sendMessage: (courseId: number, data: SendMessageRequest) => {
     return request.post<ChatMessage>(`/api/courses/${courseId}/ai-chat`, data);
+  },
+
+  /** 发送消息并获取 SSE 流式回答，返回 abort 函数 */
+  sendMessageStream: (courseId: number, data: SendMessageRequest, callbacks: SSECallbacks) => {
+    return fetchSSE(`/api/courses/${courseId}/ai-chat/stream`, data, callbacks);
   },
 
   getSessionHistory: (courseId: number, sessionId: string, params?: { page?: number; size?: number }) => {

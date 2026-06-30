@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Input, Typography, Space, Tag, message,
@@ -7,7 +7,7 @@ import {
 import {
   ArrowLeftOutlined, SendOutlined, RobotOutlined, UserOutlined,
   DeleteOutlined, PlusOutlined, ReloadOutlined, FileTextOutlined,
-  LoadingOutlined,
+  LoadingOutlined, StopOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { aiChatApi, type ChatMessage, type ChatSession, type ChatReference } from '../../api';
@@ -40,8 +40,13 @@ export default function AiChat() {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [streamingRefs, setStreamingRefs] = useState<ChatReference[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<(() => void) | null>(null);
+  const streamingContentRef = useRef('');
+  const streamingRefsRef = useRef<ChatReference[]>([]);
   const isTeacher = user?.role === 'TEACHER';
 
   // 自动滚动到底部
@@ -142,9 +147,16 @@ export default function AiChat() {
     await doSend(activeSessionId, inputValue.trim());
   };
 
-  const doSend = async (sessionId: string, content: string) => {
+  const doSend = useCallback(async (sessionId: string, content: string) => {
     setInputValue('');
     setLoading(true);
+    setStreamingContent('');
+    setStreamingRefs([]);
+    streamingContentRef.current = '';
+    streamingRefsRef.current = [];
+
+    // 先中止之前的流式请求（如果有）
+    abortRef.current?.();
 
     // 乐观更新：本地添加用户消息
     const tempUserMsg: ChatMessage = {
@@ -156,21 +168,85 @@ export default function AiChat() {
       content,
       createTime: new Date().toISOString(),
     };
+
     setMessages((prev) => [...prev, tempUserMsg]);
 
-    try {
-      const result: any = await aiChatApi.sendMessage(numCourseId, { sessionId, content });
-      const assistantMsg: ChatMessage = result?.data || result;
-      setMessages((prev) => [...prev, assistantMsg]);
-      // 刷新会话列表以更新最后消息
-      fetchSessions();
-    } catch {
-      message.error('发送失败');
-      // 移除乐观更新的用户消息
-      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
-    } finally {
-      setLoading(false);
+    const abort = aiChatApi.sendMessageStream(numCourseId, { sessionId, content }, {
+      onStart: () => {
+        // no-op
+      },
+      onChunk: (text: string) => {
+        streamingContentRef.current += text;
+        setStreamingContent(streamingContentRef.current);
+      },
+      onReferences: (refs: unknown[]) => {
+        streamingRefsRef.current = refs as ChatReference[];
+        setStreamingRefs(refs as ChatReference[]);
+      },
+      onDone: (messageId: number) => {
+        // 用 ref 读取最终内容（避免闭包 stale state 问题）
+        const finalContent = streamingContentRef.current;
+        const finalRefs = streamingRefsRef.current;
+        const finalMsg: ChatMessage = {
+          id: messageId,
+          userId: user?.id || 0,
+          courseId: numCourseId,
+          sessionId,
+          role: 'ASSISTANT',
+          content: finalContent,
+          referencesJson: finalRefs.length > 0 ? JSON.stringify(finalRefs) : undefined,
+          createTime: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, finalMsg]);
+        setStreamingContent('');
+        setStreamingRefs([]);
+        streamingContentRef.current = '';
+        streamingRefsRef.current = [];
+        setLoading(false);
+        abortRef.current = null;
+        fetchSessions();
+      },
+      onError: (err: Error) => {
+        message.error('AI 回答失败: ' + err.message);
+        setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
+        setStreamingContent('');
+        setStreamingRefs([]);
+        streamingContentRef.current = '';
+        streamingRefsRef.current = [];
+        setLoading(false);
+        abortRef.current = null;
+      },
+    });
+
+    abortRef.current = abort;
+  }, [numCourseId, user, fetchSessions]);
+
+  /** 中止 AI 流式生成 */
+  const handleStopStreaming = () => {
+    abortRef.current?.();
+    abortRef.current = null;
+    const savedContent = streamingContentRef.current;
+    const savedRefs = streamingRefsRef.current;
+    // 将已生成的内容保存为消息
+    if (savedContent.trim()) {
+      const partialMsg: ChatMessage = {
+        id: Date.now(),
+        userId: user?.id || 0,
+        courseId: numCourseId,
+        sessionId: activeSessionId || '',
+        role: 'ASSISTANT',
+        content: savedContent + '\n\n*(已中止生成)*',
+        referencesJson: savedRefs.length > 0 ? JSON.stringify(savedRefs) : undefined,
+        createTime: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, partialMsg]);
     }
+    setStreamingContent('');
+    setStreamingRefs([]);
+    streamingContentRef.current = '';
+    streamingRefsRef.current = [];
+    setLoading(false);
+    message.info('已停止生成');
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -423,8 +499,59 @@ export default function AiChat() {
             ))
           )}
 
-          {/* 加载指示器 */}
-          {loading && (
+          {/* 流式输出中的 AI 消息 */}
+          {loading && streamingContent && (
+            <div
+              style={{
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: '#52c41a', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}
+              >
+                <RobotOutlined style={{ color: '#fff' }} />
+              </div>
+              <div style={{ maxWidth: '75%' }}>
+                <div
+                  style={{
+                    padding: '10px 16px', borderRadius: 12,
+                    background: '#f6f8fa', border: '1px solid #e8e8e8',
+                    whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7,
+                  }}
+                >
+                  {streamingContent}
+                  <span
+                    style={{
+                      display: 'inline-block', width: 2, height: 16,
+                      background: '#1677ff', marginLeft: 2,
+                      animation: 'blink 0.8s infinite',
+                    }}
+                  />
+                </div>
+                {streamingRefs.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <FileTextOutlined style={{ fontSize: 12, marginRight: 4 }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>参考来源：</Text>
+                    {streamingRefs.map((ref, i) => (
+                      <Tag key={i} color="blue" style={{ marginTop: 4, marginRight: 4, fontSize: 11 }}>
+                        {ref.sourceName}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 发送中但还没有收到内容时的加载指示器 */}
+          {loading && !streamingContent && (
             <div style={{ textAlign: 'center', padding: 12 }}>
               <Space>
                 <LoadingOutlined />
@@ -432,6 +559,8 @@ export default function AiChat() {
               </Space>
             </div>
           )}
+
+          <style>{`@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
 
           <div ref={messagesEndRef} />
         </div>
@@ -451,16 +580,26 @@ export default function AiChat() {
               style={{ flex: 1 }}
               disabled={loading}
             />
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              loading={loading}
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim()}
-              style={{ height: 40 }}
-            >
-              发送
-            </Button>
+            {loading ? (
+              <Button
+                danger
+                icon={<StopOutlined />}
+                onClick={handleStopStreaming}
+                style={{ height: 40 }}
+              >
+                停止
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                icon={<SendOutlined />}
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim()}
+                style={{ height: 40 }}
+              >
+                发送
+              </Button>
+            )}
           </div>
           <Text type="secondary" style={{ fontSize: 11, marginTop: 4, display: 'block' }}>
             AI 助教基于课程资料回答，答案仅供参考。教师可在左侧工具栏重建知识库。

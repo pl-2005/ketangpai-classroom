@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -146,6 +147,71 @@ public class ChatService extends BaseService {
                 .build();
 
         return chatMessageRepository.save(assistantMsg);
+    }
+
+    /**
+     * 流式 AI 答疑（SSE 模式）。
+     * 保存用户消息到 DB，通过 RAG + LLM 流式生成回答，
+     * 返回 Flux<String> 供 Controller 层桥接到 SseEmitter。
+     * <p>
+     * 注意：ASSISTANT 消息的最终保存由 Controller 在流结束后执行。
+     */
+    @Transactional
+    public Flux<String> chatStream(Long courseId, Long userId,
+                                   String sessionId, String question,
+                                   List<KnowledgeChunk>[] outChunks,
+                                   String[] outReferencesJson) {
+        getMemberOrThrow(courseId, userId);
+
+        // 1. 保存用户提问
+        ChatMessage userMsg = ChatMessage.builder()
+                .userId(userId)
+                .courseId(courseId)
+                .sessionId(sessionId)
+                .role(ChatRole.USER)
+                .content(question)
+                .build();
+        chatMessageRepository.save(userMsg);
+
+        // 2. RAG 检索
+        List<KnowledgeChunk> relevantChunks;
+        try {
+            relevantChunks = knowledgeBaseService.searchRelevant(courseId, question, TOP_K);
+        } catch (Exception e) {
+            log.error("RAG 检索失败", e);
+            relevantChunks = List.of();
+        }
+        outChunks[0] = relevantChunks;
+
+        // 3. 构建引用 JSON（在流开始前计算好）
+        if (!relevantChunks.isEmpty()) {
+            outReferencesJson[0] = buildReferencesJson(relevantChunks);
+        }
+
+        // 4. 加载对话历史
+        List<ChatMessage> history = loadRecentHistory(sessionId);
+
+        // 5. 构建 Prompt 并流式调用 LLM
+        String systemPrompt = buildSystemPromptWithContext(relevantChunks);
+        String userPrompt = buildUserPromptWithHistory(question, history);
+
+        try {
+            return aiChatChatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .stream()
+                    .content();
+        } catch (Exception e) {
+            log.error("LLM 流式调用失败", e);
+            // 降级：返回降级回答作为单个 token
+            String fallback;
+            if (!relevantChunks.isEmpty()) {
+                fallback = buildFallbackAnswer(question, relevantChunks);
+            } else {
+                fallback = "抱歉，AI 服务暂时不可用。请确认课程已配置知识库，或联系教师。";
+            }
+            return Flux.just(fallback);
+        }
     }
 
     /** 获取指定会话的对话历史（分页） */
