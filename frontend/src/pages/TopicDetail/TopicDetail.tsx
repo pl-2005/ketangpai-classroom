@@ -295,9 +295,11 @@ export default function TopicDetail() {
                         {reply.content}
                       </Paragraph>
                       <Space>
-                        <Button type="link" size="small" onClick={() => handleReplyTo(reply)}>
-                          回复
-                        </Button>
+                        {depth < 1 && (
+                          <Button type="link" size="small" onClick={() => handleReplyTo(reply)}>
+                            回复
+                          </Button>
+                        )}
                         {(reply.authorId === user?.id || canModerate) && (
                           <Popconfirm title="确认删除？" onConfirm={() => handleDeleteReply(reply.id)}>
                             <Button type="link" size="small" danger>删除</Button>

@@ -109,6 +109,11 @@ public class TopicService extends BaseService {
             if (!parent.getTopicId().equals(topicId)) {
                 throw new BusinessException(400, "父回复不属于当前话题");
             }
+            // 限制最多 2 级评论：只能回复一级评论（depth=0），不能再嵌套
+            int parentDepth = getDepth(parent.getPath());
+            if (parentDepth >= 1) {
+                throw new BusinessException(400, "最多支持 2 级评论，无法继续嵌套回复");
+            }
             parentAuthorId = parent.getAuthorId();
         }
 
@@ -273,6 +278,16 @@ public class TopicService extends BaseService {
             reply.setAuthorId(null);
             reply.setAuthorName("匿名用户");
         }
+    }
+
+    private int getDepth(String path) {
+        if (path == null) return 0;
+        // 路径格式: /123 或 /456/789，depth = 段数 - 1
+        int depth = 0;
+        for (int i = 0; i < path.length(); i++) {
+            if (path.charAt(i) == '/') depth++;
+        }
+        return depth - 1;
     }
 
     private boolean isTeacher(Long courseId, Long userId) {
