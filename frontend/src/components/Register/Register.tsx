@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Form, Input, Button, Radio, message } from 'antd';
+import { Form, Input, Button, Radio, App } from 'antd';
 import { MailOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { authApi } from '../../api/auth/auth-api';
 import styles from './Register.module.css';
 import bgImage from '@/assets/login/bg.png';
 
 const Register = () => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
 
   const onFinish = async (values: Record<string, string>) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Form, Input, Button, Checkbox, message } from 'antd';
+import { Form, Input, Button, Checkbox, App } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
@@ -8,6 +8,7 @@ import styles from './Login.module.css';
 import bgImage from '@/assets/login/bg.png';
 
 const Login = () => {
+    const { message } = App.useApp();
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();

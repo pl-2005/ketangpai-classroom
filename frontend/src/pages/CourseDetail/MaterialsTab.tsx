@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Tree, Button, Modal, Form, Input, Upload, Select, Space, Typography, message, Spin, Empty, Popconfirm } from 'antd';
+import { Tree, Button, Modal, Form, Input, Upload, Select, Space, Typography, App, Spin, Empty, Popconfirm } from 'antd';
 import {
   FolderOutlined, FileOutlined, LinkOutlined, PlusOutlined,
   DeleteOutlined, EditOutlined, DownloadOutlined, EyeOutlined, FolderAddOutlined,
@@ -21,6 +21,7 @@ interface Props {
 }
 
 export default function MaterialsTab({ courseId, isTeacher }: Props) {
+  const { message } = App.useApp();
   const [treeData, setTreeData] = useState<TreeNodeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [antTreeData, setAntTreeData] = useState<DataNode[]>([]);

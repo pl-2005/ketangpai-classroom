@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Modal, Progress, Typography, Tag, Button, Space, message } from 'antd';
+import { Modal, Progress, Typography, Tag, Button, Space, App } from 'antd';
 import { LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { aiGradingApi, type GradingBatchTask } from '../../api';
 
@@ -20,6 +20,7 @@ interface Props {
 }
 
 export default function BatchProgressModal({ assignmentId, visible, onClose }: Props) {
+  const { message } = App.useApp();
   const [task, setTask] = useState<GradingBatchTask | null>(null);
   const [polling, setPolling] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

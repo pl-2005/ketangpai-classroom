@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Tag, Button, Select, Space, Typography, Empty, Spin, message, Popconfirm } from 'antd';
+import { Table, Tag, Button, Select, Space, Typography, Empty, Spin, App, Popconfirm } from 'antd';
 import { BellOutlined, CheckOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -33,6 +33,7 @@ const TYPE_COLORS: Record<NotificationType, string> = {
 };
 
 export default function NotificationCenter() {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);

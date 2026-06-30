@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, message } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, App } from 'antd';
 import {
   BookOutlined,
   BellOutlined,
@@ -35,6 +35,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function AppLayout() {
+  const { message } = App.useApp();
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();

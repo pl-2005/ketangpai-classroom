@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { List, Card, Button, Tag, Space, Typography, Modal, Form, Input, Switch, message, Spin, Empty } from 'antd';
+import { List, Card, Button, Tag, Space, Typography, Modal, Form, Input, Switch, App, Spin, Empty } from 'antd';
 import { PlusOutlined, PushpinOutlined, LockOutlined, CommentOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export default function TopicsTab({ courseId }: Props) {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
