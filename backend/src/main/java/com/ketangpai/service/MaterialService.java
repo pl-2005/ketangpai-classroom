@@ -27,10 +27,10 @@ public class MaterialService extends BaseService {
     private final KnowledgeBaseService knowledgeBaseService;
 
     public MaterialService(CourseMemberRepository courseMemberRepository,
-                           MaterialFolderRepository folderRepository,
-                           MaterialRepository materialRepository,
-                           FileService fileService,
-                           KnowledgeBaseService knowledgeBaseService) {
+            MaterialFolderRepository folderRepository,
+            MaterialRepository materialRepository,
+            FileService fileService,
+            KnowledgeBaseService knowledgeBaseService) {
         super(courseMemberRepository);
         this.folderRepository = folderRepository;
         this.materialRepository = materialRepository;
@@ -84,8 +84,8 @@ public class MaterialService extends BaseService {
     }
 
     private Map<String, Object> buildFolderNode(MaterialFolder folder,
-                                                 Map<Long, List<MaterialFolder>> folderChildren,
-                                                 Map<Long, List<Material>> folderMaterials) {
+            Map<Long, List<MaterialFolder>> folderChildren,
+            Map<Long, List<Material>> folderMaterials) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("folder", folder);
         node.put("materials", folderMaterials.getOrDefault(folder.getId(), List.of()));
@@ -111,7 +111,7 @@ public class MaterialService extends BaseService {
 
     @Transactional
     public Material create(Long courseId, Long userId, Long folderId, String title,
-                           MaterialType type, String fileUrl, Long fileSize, String linkUrl, Long fileId) {
+            MaterialType type, String fileUrl, Long fileSize, String linkUrl, Long fileId) {
         checkTeacher(courseId, userId);
 
         Material material = Material.builder()
@@ -144,7 +144,9 @@ public class MaterialService extends BaseService {
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new BusinessException(404, "资料不存在"));
         getMemberOrThrow(material.getCourseId(), userId);
-        return fileService.getPresignedUrlByPath(material.getFileUrl());
+
+        return fileService.getDownloadUrlByPath(material.getFileUrl().substring("/api/files/".length()),
+                material.getTitle());
     }
 
     @Transactional
@@ -171,8 +173,10 @@ public class MaterialService extends BaseService {
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new BusinessException(404, "资料不存在"));
         checkTeacher(material.getCourseId(), userId);
-        if (title != null) material.setTitle(title);
-        if (sortOrder != null) material.setSortOrder(sortOrder);
+        if (title != null)
+            material.setTitle(title);
+        if (sortOrder != null)
+            material.setSortOrder(sortOrder);
         return materialRepository.save(material);
     }
 

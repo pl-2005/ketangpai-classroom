@@ -265,6 +265,28 @@ public class FileService {
         return generatePresignedUrl(objectPath);
     }
 
+    /**
+     * 根据 MinIO 对象路径生成预签名下载 URL（强制下载而非预览）
+     */
+    public String getDownloadUrlByPath(String objectPath, String fileName) {
+        if (objectPath == null || objectPath.isBlank()) {
+            throw new BusinessException(400, "文件路径为空");
+        }
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .bucket(minioConfig.getBucket())
+                            .object(objectPath)
+                            .method(Http.Method.GET)
+                            .expiry(PRESIGNED_EXPIRY_MINUTES, TimeUnit.MINUTES)
+                            .extraQueryParams(Map.of("response-content-disposition", "attachment; filename=\"" + fileName + "\""))
+                            .build());
+        } catch (Exception e) {
+            log.error("生成预签名下载 URL 失败: path={}", objectPath, e);
+            throw new BusinessException(500, "文件下载链接生成失败");
+        }
+    }
+
     // ==================== 原始字节下载 ====================
 
     /**
