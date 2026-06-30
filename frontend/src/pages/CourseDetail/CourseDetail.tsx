@@ -9,7 +9,7 @@ import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
   CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined, SearchOutlined,
-  InboxOutlined, UndoOutlined,
+  InboxOutlined, UndoOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import MaterialsTab from './MaterialsTab';
 import TopicsTab from './TopicsTab';
@@ -111,18 +111,23 @@ export default function CourseDetail() {
   }, [courseId]);
 
   // ====== 归档操作 ======
-  const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL') => {
+  const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL' | 'DELETE') => {
     setArchiving(true);
     const actionLabels: Record<string, string> = {
       ARCHIVE: '个人归档',
       UNARCHIVE: '取消个人归档',
       ARCHIVE_FOR_ALL: '归档课程',
       RESTORE_FOR_ALL: '恢复课程',
+      DELETE: '删除课程',
     };
     try {
       await courseApi.courseAction(numCourseId, { action });
       message.success(`${actionLabels[action]}成功`);
-      await fetchCourse();
+      if (action === 'DELETE') {
+        navigate('/courses');
+      } else {
+        await fetchCourse();
+      }
     } catch {
       message.error(`${actionLabels[action]}失败`);
     } finally {
@@ -328,14 +333,28 @@ export default function CourseDetail() {
               </Popconfirm>
             )}
             {isCreator && isCourseArchived && (
-              <Popconfirm
-                title="确认恢复课程为活跃状态？"
-                onConfirm={() => handleArchiveAction('RESTORE_FOR_ALL')}
-              >
-                <Button type="default" icon={<UndoOutlined />} loading={archiving}>
-                  恢复课程
-                </Button>
-              </Popconfirm>
+              <>
+                <Popconfirm
+                  title="确认恢复课程为活跃状态？"
+                  onConfirm={() => handleArchiveAction('RESTORE_FOR_ALL')}
+                >
+                  <Button type="primary" icon={<UndoOutlined />} loading={archiving}>
+                    恢复课程
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title="永久删除后无法恢复，确认删除？"
+                  description="课程及所有作业、资料将被永久删除"
+                  onConfirm={() => handleArchiveAction('DELETE')}
+                  okText="确认删除"
+                  okButtonProps={{ danger: true }}
+                  cancelText="取消"
+                >
+                  <Button type="primary" danger icon={<DeleteOutlined />} loading={archiving}>
+                    永久删除
+                  </Button>
+                </Popconfirm>
+              </>
             )}
             {/* 个人归档：非创建者成员可见 */}
             {!isCreator && !isPersonalArchived && (

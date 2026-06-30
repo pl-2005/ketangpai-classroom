@@ -14,7 +14,7 @@ export { filesApi } from './files/files-api';
 
 // 类型导出
 export type { RegisterRequest, LoginRequest, User, LoginResponse } from './auth/auth-api';
-export type { Course, CourseMember } from './courses/courses-api';
+export type { Course, CourseMember, CourseAction } from './courses/courses-api';
 export type { Assignment } from './assignments/assignments-api';
 export type { Submission } from './submissions/submissions-api';
 export type { Material, MaterialFolder } from './materials/materials-api';
