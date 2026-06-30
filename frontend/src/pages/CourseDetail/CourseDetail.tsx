@@ -9,7 +9,7 @@ import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
   CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined, SearchOutlined,
-  InboxOutlined, UndoOutlined, DeleteOutlined,
+  InboxOutlined, UndoOutlined, DeleteOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import MaterialsTab from './MaterialsTab';
 import TopicsTab from './TopicsTab';
@@ -111,7 +111,7 @@ export default function CourseDetail() {
   }, [courseId]);
 
   // ====== 归档操作 ======
-  const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL' | 'DELETE') => {
+  const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL' | 'DELETE' | 'LEAVE') => {
     setArchiving(true);
     const actionLabels: Record<string, string> = {
       ARCHIVE: '个人归档',
@@ -119,11 +119,12 @@ export default function CourseDetail() {
       ARCHIVE_FOR_ALL: '归档课程',
       RESTORE_FOR_ALL: '恢复课程',
       DELETE: '删除课程',
+      LEAVE: '退课',
     };
     try {
       await courseApi.courseAction(numCourseId, { action });
       message.success(`${actionLabels[action]}成功`);
-      if (action === 'DELETE') {
+      if (action === 'DELETE' || action === 'LEAVE') {
         navigate('/courses');
       } else {
         await fetchCourse();
@@ -368,14 +369,33 @@ export default function CourseDetail() {
               </Button>
             )}
             {!isCreator && isPersonalArchived && (
-              <Button
-                type="default"
-                icon={<UndoOutlined />}
-                loading={archiving}
-                onClick={() => handleArchiveAction('UNARCHIVE')}
-              >
-                取消归档
-              </Button>
+              <>
+                <Button
+                  type="default"
+                  icon={<UndoOutlined />}
+                  loading={archiving}
+                  onClick={() => handleArchiveAction('UNARCHIVE')}
+                >
+                  取消归档
+                </Button>
+                <Popconfirm
+                  title="确认退出课程？"
+                  description="退课后需重新使用课程号加入"
+                  onConfirm={() => handleArchiveAction('LEAVE')}
+                  okText="确认退课"
+                  okButtonProps={{ danger: true }}
+                  cancelText="取消"
+                >
+                  <Button
+                    type="default"
+                    danger
+                    icon={<LogoutOutlined />}
+                    loading={archiving}
+                  >
+                    退课
+                  </Button>
+                </Popconfirm>
+              </>
             )}
           </Space>
         </div>
