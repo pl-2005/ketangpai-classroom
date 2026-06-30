@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -118,10 +119,11 @@ public class ChatController {
                             try {
                                 // 发送 references 事件
                                 if (refsHolder[0] != null) {
+                                    List<Map<String, Object>> refs =
+                                            parseReferencesJson(refsHolder[0]);
                                     emitter.send(SseEmitter.event()
                                             .name("references")
-                                            .data(Map.of("references",
-                                                    parseReferencesJson(refsHolder[0])));
+                                            .data(Map.of("references", (Object) refs)));
                                 }
 
                                 // 保存 ASSISTANT 消息到 DB
