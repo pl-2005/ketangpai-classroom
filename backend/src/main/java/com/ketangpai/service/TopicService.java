@@ -4,6 +4,7 @@ import com.ketangpai.model.entity.Topic;
 import com.ketangpai.model.entity.TopicReply;
 import com.ketangpai.model.entity.User;
 import com.ketangpai.exception.BusinessException;
+import com.ketangpai.model.enums.NotificationType;
 import com.ketangpai.model.enums.TopicStatus;
 import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.TopicReplyRepository;
@@ -24,17 +25,20 @@ public class TopicService extends BaseService {
     private final TopicReplyRepository replyRepository;
     private final UserRepository userRepository;
     private final KnowledgeBaseService knowledgeBaseService;
+    private final NotificationService notificationService;
 
     public TopicService(CourseMemberRepository courseMemberRepository,
                         TopicRepository topicRepository,
                         TopicReplyRepository replyRepository,
                         UserRepository userRepository,
-                        KnowledgeBaseService knowledgeBaseService) {
+                        KnowledgeBaseService knowledgeBaseService,
+                        NotificationService notificationService) {
         super(courseMemberRepository);
         this.topicRepository = topicRepository;
         this.replyRepository = replyRepository;
         this.userRepository = userRepository;
         this.knowledgeBaseService = knowledgeBaseService;
+        this.notificationService = notificationService;
     }
 
     public List<Topic> listByCourse(Long courseId, Long userId) {
@@ -98,12 +102,14 @@ public class TopicService extends BaseService {
         getMemberOrThrow(topic.getCourseId(), authorId);
 
         // 校验 parentId 属于当前话题，防止跨话题伪造楼中楼
+        Long parentAuthorId = null;
         if (parentId != null) {
             TopicReply parent = replyRepository.findById(parentId)
                     .orElseThrow(() -> new BusinessException(404, "父回复不存在"));
             if (!parent.getTopicId().equals(topicId)) {
                 throw new BusinessException(400, "父回复不属于当前话题");
             }
+            parentAuthorId = parent.getAuthorId();
         }
 
         TopicReply reply = TopicReply.builder()
@@ -127,7 +133,42 @@ public class TopicService extends BaseService {
             path = "/" + reply.getId();
         }
         reply.setPath(path);
-        return replyRepository.save(reply);
+        reply = replyRepository.save(reply);
+
+        // 准备回复者名称
+        User replier = userRepository.findById(authorId).orElse(null);
+        String replierName = replier != null ? replier.getRealName() : "用户";
+        if (isAnonymous != null && isAnonymous) {
+            replierName = "匿名用户";
+        }
+
+        // 向话题作者发送回复通知（自己不通知自己）
+        if (!topic.getAuthorId().equals(authorId)) {
+            notificationService.create(
+                    topic.getAuthorId(),
+                    topic.getCourseId(),
+                    NotificationType.TOPIC_REPLY,
+                    "话题收到新回复",
+                    replierName + " 回复了你的话题「" + topic.getTitle() + "」",
+                    topicId
+            );
+        }
+
+        // 向被回复者发送通知（楼中楼，且被回复者不是话题作者、不是回复者自己）
+        if (parentAuthorId != null
+                && !parentAuthorId.equals(authorId)
+                && !parentAuthorId.equals(topic.getAuthorId())) {
+            notificationService.create(
+                    parentAuthorId,
+                    topic.getCourseId(),
+                    NotificationType.TOPIC_REPLY,
+                    "你的回复收到新回复",
+                    replierName + " 回复了你的评论",
+                    topicId
+            );
+        }
+
+        return reply;
     }
 
     @Transactional
