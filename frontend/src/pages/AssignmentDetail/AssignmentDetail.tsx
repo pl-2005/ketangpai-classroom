@@ -91,16 +91,17 @@ export default function AssignmentDetail() {
   }, [assignmentId, teacherChecked]);
 
   // Fetch AI config in teacher view
+  const fetchAiConfig = async () => {
+    try {
+      const data: any = await aiGradingApi.getAiGradingConfig(numAssignmentId);
+      if (data?.assignmentId) setAiConfig(data);
+    } catch {
+      // AI 配置获取失败，非关键功能，静默处理
+    }
+  };
+
   useEffect(() => {
     if (teacherChecked) {
-      const fetchAiConfig = async () => {
-        try {
-          const data: any = await aiGradingApi.getAiGradingConfig(numAssignmentId);
-          if (data?.assignmentId) setAiConfig(data);
-        } catch {
-          // AI 配置获取失败，非关键功能，静默处理
-        }
-      };
       fetchAiConfig();
     }
   }, [teacherChecked]);
@@ -472,7 +473,7 @@ export default function AssignmentDetail() {
       <AiGradingConfigPanel
         assignmentId={numAssignmentId}
         visible={configPanelOpen}
-        onClose={() => { setConfigPanelOpen(false); }}
+        onClose={() => { setConfigPanelOpen(false); fetchAiConfig(); }}
       />
 
       {/* Batch Progress Modal */}
