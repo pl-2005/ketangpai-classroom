@@ -15,6 +15,7 @@ public record CourseDetailResponse(
         Long creatorId,
         CourseMemberRole role,
         Long memberCount,
+        Boolean isArchived,
         LocalDateTime createTime,
         LocalDateTime updateTime
 ) {

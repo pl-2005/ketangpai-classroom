@@ -9,6 +9,7 @@ import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
   BellOutlined, TeamOutlined, FileTextOutlined, ArrowLeftOutlined,
   CrownOutlined, FolderOutlined, CommentOutlined, RobotOutlined, SearchOutlined,
+  InboxOutlined, UndoOutlined,
 } from '@ant-design/icons';
 import MaterialsTab from './MaterialsTab';
 import TopicsTab from './TopicsTab';
@@ -62,7 +63,13 @@ export default function CourseDetail() {
   const [editForm] = Form.useForm();
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  // 归档操作
+  const [archiving, setArchiving] = useState(false);
+
   const isTeacher = course?.role === 'CREATOR' || course?.role === 'TEACHER';
+  const isCreator = course?.role === 'CREATOR';
+  const isCourseArchived = course?.status === 'ARCHIVED';
+  const isPersonalArchived = course?.isArchived;
 
   const disabledDate = (current: dayjs.Dayjs | null) => {
     if (!current) {
@@ -102,6 +109,26 @@ export default function CourseDetail() {
     setLoading(true);
     Promise.all([fetchCourse(), fetchAssignments(), fetchMembers()]).finally(() => setLoading(false));
   }, [courseId]);
+
+  // ====== 归档操作 ======
+  const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL') => {
+    setArchiving(true);
+    const actionLabels: Record<string, string> = {
+      ARCHIVE: '个人归档',
+      UNARCHIVE: '取消个人归档',
+      ARCHIVE_FOR_ALL: '归档课程',
+      RESTORE_FOR_ALL: '恢复课程',
+    };
+    try {
+      await courseApi.courseAction(numCourseId, { action });
+      message.success(`${actionLabels[action]}成功`);
+      await fetchCourse();
+    } catch {
+      message.error(`${actionLabels[action]}失败`);
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   // ====== 作业操作 ======
   const handleCreate = async (values: Record<string, unknown>) => {
@@ -281,13 +308,57 @@ export default function CourseDetail() {
           </Descriptions.Item>
         </Descriptions>
         <div style={{ marginTop: 12 }}>
-          <Button
-            type="default"
-            icon={<RobotOutlined />}
-            onClick={() => navigate(`/courses/${courseId}/ai-chat`)}
-          >
-            AI 答疑
-          </Button>
+          <Space>
+            <Button
+              type="default"
+              icon={<RobotOutlined />}
+              onClick={() => navigate(`/courses/${courseId}/ai-chat`)}
+            >
+              AI 答疑
+            </Button>
+            {/* 课程级归档：仅创建者可见 */}
+            {isCreator && !isCourseArchived && (
+              <Popconfirm
+                title="归档后所有成员将无法在本课进行新操作，确认归档？"
+                onConfirm={() => handleArchiveAction('ARCHIVE_FOR_ALL')}
+              >
+                <Button type="default" icon={<InboxOutlined />} loading={archiving}>
+                  归档课程
+                </Button>
+              </Popconfirm>
+            )}
+            {isCreator && isCourseArchived && (
+              <Popconfirm
+                title="确认恢复课程为活跃状态？"
+                onConfirm={() => handleArchiveAction('RESTORE_FOR_ALL')}
+              >
+                <Button type="default" icon={<UndoOutlined />} loading={archiving}>
+                  恢复课程
+                </Button>
+              </Popconfirm>
+            )}
+            {/* 个人归档：非创建者成员可见 */}
+            {!isCreator && !isPersonalArchived && (
+              <Button
+                type="default"
+                icon={<InboxOutlined />}
+                loading={archiving}
+                onClick={() => handleArchiveAction('ARCHIVE')}
+              >
+                个人归档
+              </Button>
+            )}
+            {!isCreator && isPersonalArchived && (
+              <Button
+                type="default"
+                icon={<UndoOutlined />}
+                loading={archiving}
+                onClick={() => handleArchiveAction('UNARCHIVE')}
+              >
+                取消归档
+              </Button>
+            )}
+          </Space>
         </div>
       </Card>
 

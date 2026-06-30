@@ -1,16 +1,18 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Col, Card, Tag, Space, Typography } from 'antd';
+import { Col, Card, Tag, Space, Typography, Button, message, Tooltip } from 'antd';
 import {
-  BookOutlined, TeamOutlined, CrownOutlined,
+  BookOutlined, TeamOutlined, CrownOutlined, InboxOutlined, UndoOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import type { Course } from '../../api';
+import { courseApi, type Course } from '../../api';
 
 const { Text } = Typography;
 
 interface SortableCourseCardProps {
   course: Course;
+  onRefresh: () => void;
 }
 
 /**
@@ -19,8 +21,9 @@ interface SortableCourseCardProps {
  * 拖拽激活阈值 5px 由父组件 DndContext 的 PointerSensor 控制，
  * 区分点击导航和拖拽排序。
  */
-export default function SortableCourseCard({ course }: SortableCourseCardProps) {
+export default function SortableCourseCard({ course, onRefresh }: SortableCourseCardProps) {
   const navigate = useNavigate();
+  const [archiving, setArchiving] = useState(false);
   const {
     attributes,
     listeners,
@@ -48,6 +51,25 @@ export default function SortableCourseCard({ course }: SortableCourseCardProps) 
     }
   };
 
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止触发卡片点击导航
+    setArchiving(true);
+    try {
+      if (course.isArchived) {
+        await courseApi.courseAction(course.id, { action: 'UNARCHIVE' });
+        message.success('已取消归档');
+      } else {
+        await courseApi.courseAction(course.id, { action: 'ARCHIVE' });
+        message.success('已归档');
+      }
+      onRefresh();
+    } catch {
+      message.error('操作失败');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
     <Col
       xs={24} sm={12} md={8} lg={6}
@@ -72,6 +94,18 @@ export default function SortableCourseCard({ course }: SortableCourseCardProps) 
             <BookOutlined style={{ fontSize: 40, color: '#fff', opacity: 0.8 }} />
           </div>
         }
+        actions={[
+          <Tooltip title={course.isArchived ? '取消归档' : '归档'} key="archive">
+            <Button
+              type="text"
+              size="small"
+              icon={course.isArchived ? <UndoOutlined /> : <InboxOutlined />}
+              loading={archiving}
+              onClick={handleArchive}
+              style={{ fontSize: 14 }}
+            />
+          </Tooltip>,
+        ]}
       >
         <Card.Meta
           title={

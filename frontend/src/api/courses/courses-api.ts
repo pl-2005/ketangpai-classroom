@@ -4,7 +4,7 @@ import type { PageResponse } from '../../utils/request';
 // ============ 类型定义 ============
 export type CourseStatus = 'ACTIVE' | 'ARCHIVED';
 export type CourseMemberRole = 'CREATOR' | 'TEACHER' | 'STUDENT';
-export type CourseAction = 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'LEAVE' | 'DELETE';
+export type CourseAction = 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL' | 'LEAVE' | 'DELETE';
 
 export interface Course {
   id: number;
