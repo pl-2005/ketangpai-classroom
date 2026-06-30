@@ -61,28 +61,33 @@ instance.interceptors.response.use(
   },
   (error: AxiosError) => {
     const status = error.response?.status;
+    // 优先使用后端返回的具体错误消息
+    const serverMessage = (error.response?.data as { message?: string })?.message;
 
     switch (status) {
       case STATUS_CODE.UNAUTHORIZED:
-        message.error(STATUS_CODE_MESSAGE[STATUS_CODE.UNAUTHORIZED]);
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.UNAUTHORIZED]);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
         break;
+      case STATUS_CODE.BAD_REQUEST:
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.BAD_REQUEST]);
+        break;
       case STATUS_CODE.FORBIDDEN:
-        message.error(STATUS_CODE_MESSAGE[STATUS_CODE.FORBIDDEN]);
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.FORBIDDEN]);
         break;
       case STATUS_CODE.NOT_FOUND:
-        message.error(STATUS_CODE_MESSAGE[STATUS_CODE.NOT_FOUND]);
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.NOT_FOUND]);
         break;
       case STATUS_CODE.CONFLICT:
-        message.error(STATUS_CODE_MESSAGE[STATUS_CODE.CONFLICT]);
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.CONFLICT]);
         break;
       case STATUS_CODE.INTERNAL_SERVER_ERROR:
-        message.error(STATUS_CODE_MESSAGE[STATUS_CODE.INTERNAL_SERVER_ERROR]);
+        message.error(serverMessage || STATUS_CODE_MESSAGE[STATUS_CODE.INTERNAL_SERVER_ERROR]);
         break;
       default:
-        message.error(error.message || '网络错误');
+        message.error(serverMessage || error.message || '网络错误');
     }
 
     return Promise.reject(error);

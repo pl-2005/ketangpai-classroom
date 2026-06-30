@@ -31,8 +31,8 @@ const Register = () => {
         window.location.href = '/login';
       }
     } catch (error) {
+      // axios 拦截器已显示具体错误消息，此处仅记录日志
       console.error('注册失败:', error);
-      message.error('注册失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -67,8 +67,8 @@ const Register = () => {
               label="用户名"
               rules={[
                 { required: true, message: '请输入用户名' },
-                { min: 3, max: 20, message: '用户名长度应在3-20之间' },
-                { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线' },
+                { min: 4, max: 50, message: '用户名长度应在4-50之间' },
+                { pattern: /^[A-Za-z][A-Za-z0-9_]*$/, message: '用户名须以字母开头，只能包含字母、数字和下划线' },
               ]}
             >
               <Input
@@ -107,14 +107,16 @@ const Register = () => {
               label="密码"
               rules={[
                 { required: true, message: '请输入密码' },
-                { min: 6, message: '密码长度至少6位' },
+                { min: 8, message: '密码长度至少8位' },
+                { max: 32, message: '密码长度不能超过32位' },
                 {
                   validator: (_, value) => {
                     if (!value) return Promise.resolve();
-                    const hasLetter = /[a-zA-Z]/.test(value);
+                    const hasUpper = /[A-Z]/.test(value);
+                    const hasLower = /[a-z]/.test(value);
                     const hasNumber = /[0-9]/.test(value);
-                    if (!hasLetter || !hasNumber) {
-                      return Promise.reject(new Error('密码需要包含字母和数字'));
+                    if (!hasUpper || !hasLower || !hasNumber) {
+                      return Promise.reject(new Error('密码须包含大写字母、小写字母和数字'));
                     }
                     return Promise.resolve();
                   },

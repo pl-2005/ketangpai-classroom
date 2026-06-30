@@ -269,7 +269,7 @@ public class CourseService extends BaseService {
     }
 
     private CourseDetailResponse toDetail(Course course,
-                                          CourseMemberRole currentUserRole,
+                                          CourseMemberRole role,
                                           long memberCount) {
         return new CourseDetailResponse(
                 course.getId(),
@@ -279,7 +279,7 @@ public class CourseService extends BaseService {
                 course.getCoverUrl(),
                 course.getStatus(),
                 course.getCreatorId(),
-                currentUserRole,
+                role,
                 memberCount,
                 course.getCreateTime(),
                 course.getUpdateTime());

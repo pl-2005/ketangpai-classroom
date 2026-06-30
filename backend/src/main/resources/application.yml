@@ -10,6 +10,11 @@ spring:
   profiles:
     active: dev
 
+  # JWT 无状态认证，无需默认 UserDetailsService
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
 ---
 spring:
   config:
@@ -82,6 +87,17 @@ security:
     max-attempts-per-ip: ${LOGIN_MAX_ATTEMPTS_PER_IP:30}
     window-millis: ${LOGIN_FAILURE_WINDOW_MILLIS:900000}
 
-# 服务端口
+# 服务端口 & 编码
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# 日志编码
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8

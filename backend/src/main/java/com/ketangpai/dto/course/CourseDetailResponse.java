@@ -13,7 +13,7 @@ public record CourseDetailResponse(
         String coverUrl,
         CourseStatus status,
         Long creatorId,
-        CourseMemberRole currentUserRole,
+        CourseMemberRole role,
         Long memberCount,
         LocalDateTime createTime,
         LocalDateTime updateTime
