@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Tabs, Card, Button, Table, Tag, Space, Typography,
   Modal, Form, Input, InputNumber, DatePicker, Switch,
-  message, Spin, Empty, Popconfirm, List, Tooltip, Descriptions,
+  App, Spin, Empty, Popconfirm, List, Tooltip, Descriptions,
 } from 'antd';
 import {
   PlusOutlined, SendOutlined, EditOutlined, CloseCircleOutlined,
@@ -46,6 +46,7 @@ export default function CourseDetail() {
   const numCourseId = Number(courseId);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
