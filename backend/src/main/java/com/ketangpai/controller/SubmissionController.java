@@ -32,24 +32,27 @@ public class SubmissionController {
 
     @PostMapping("/assignments/{assignmentId}/submit")
     public Result<Submission> submit(@CurrentUserId Long userId,
-                                      @PathVariable Long assignmentId,
-                                      @RequestBody Map<String, Object> body) {
+            @PathVariable Long assignmentId,
+            @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Long> fileIds = (List<Long>) body.get("fileIds");
+        List<Number> fileIdNumbers = (List<Number>) body.get("fileIds");
+        List<Long> fileIds = fileIdNumbers != null
+                ? fileIdNumbers.stream().map(Number::longValue).toList()
+                : null;
         return Result.ok(submissionService.submit(assignmentId, userId,
                 (String) body.get("content"), fileIds));
     }
 
     @GetMapping("/assignments/{assignmentId}/submissions")
     public Result<List<Submission>> listByAssignment(@CurrentUserId Long userId,
-                                                      @PathVariable Long assignmentId,
-                                                      @RequestParam(required = false) String status) {
+            @PathVariable Long assignmentId,
+            @RequestParam(required = false) String status) {
         return Result.ok(submissionService.listByAssignment(assignmentId, userId, status));
     }
 
     @GetMapping("/submissions/{submissionId}")
     public Result<Map<String, Object>> getDetail(@CurrentUserId Long userId,
-                                                  @PathVariable Long submissionId) {
+            @PathVariable Long submissionId) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("submission", submissionService.getDetail(submissionId, userId));
         result.put("files", submissionService.getFiles(submissionId));
@@ -59,8 +62,8 @@ public class SubmissionController {
 
     @PutMapping("/submissions/{submissionId}/grade")
     public Result<Submission> grade(@CurrentUserId Long userId,
-                                     @PathVariable Long submissionId,
-                                     @RequestBody Map<String, Object> body) {
+            @PathVariable Long submissionId,
+            @RequestBody Map<String, Object> body) {
         return Result.ok(submissionService.grade(submissionId, userId,
                 body.get("score") != null ? ((Number) body.get("score")).intValue() : null,
                 (String) body.get("teacherComment")));
@@ -68,8 +71,8 @@ public class SubmissionController {
 
     @PostMapping("/submissions/{submissionId}/return")
     public Result<Submission> returnSubmission(@CurrentUserId Long userId,
-                                                @PathVariable Long submissionId,
-                                                @RequestBody Map<String, String> body) {
+            @PathVariable Long submissionId,
+            @RequestBody Map<String, String> body) {
         return Result.ok(submissionService.returnSubmission(submissionId, userId, body.get("reason")));
     }
 }
