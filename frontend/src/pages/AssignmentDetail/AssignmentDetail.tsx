@@ -81,24 +81,29 @@ export default function AssignmentDetail() {
   useEffect(() => {
     if (!user) return;
 
-    const isTeacher = user.role === 'TEACHER';
-    setTeacherChecked(isTeacher);
-
     const fetchSubmissions = async () => {
       try {
         const data = await submissionsApi.getAssignmentSubmissions(numAssignmentId) as unknown as Submission[];
         if (Array.isArray(data)) {
-          if (isTeacher) {
+          // 根据 API 返回推断课程角色：
+          // - 教师：返回所有学生的提交（含不同 studentId）
+          // - 学生：仅返回自己的提交（0-1 条，studentId 均为本人）
+          const hasOtherStudents = data.some(s => s.studentId !== user.id);
+          // 教师但暂无提交时回落系统角色，避免教师工具栏消失
+          const isCourseTeacher = hasOtherStudents
+            || (data.length === 0 && user.role === 'TEACHER');
+          setTeacherChecked(isCourseTeacher);
+
+          if (isCourseTeacher) {
             setSubmissions(data);
             const mine = data.find((s: Submission) => s.studentId === user.id);
             if (mine) setMySubmission(mine);
           } else if (data.length > 0) {
-            // 学生：后端仅返回自己的提交
             setMySubmission(data[0]);
           }
         }
       } catch {
-        // 获取提交失败，静默处理
+        setTeacherChecked(false);
       }
     };
     fetchSubmissions();
