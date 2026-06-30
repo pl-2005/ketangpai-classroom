@@ -38,9 +38,13 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
     @Query("SELECT cm FROM CourseMember cm WHERE cm.courseId = :courseId AND cm.role = :role AND cm.deleted = false")
     List<CourseMember> findByCourseIdAndRole(@Param("courseId") Long courseId, @Param("role") CourseMemberRole role);
 
-    /** 查询单个成员关系（含已退课） */
+    /** 查询单个成员关系（仅有效成员，受 @SQLRestriction 限制） */
     @Query("SELECT cm FROM CourseMember cm WHERE cm.courseId = :courseId AND cm.userId = :userId")
     Optional<CourseMember> findByCourseIdAndUserId(@Param("courseId") Long courseId, @Param("userId") Long userId);
+
+    /** 查询单个成员关系（含已退课，绕过 @SQLRestriction） */
+    @Query(value = "SELECT * FROM course_member WHERE course_id = :courseId AND user_id = :userId", nativeQuery = true)
+    Optional<CourseMember> findByCourseIdAndUserIdIncludeDeleted(@Param("courseId") Long courseId, @Param("userId") Long userId);
 
     /** 统计课程有效学生人数 */
     @Query("SELECT COUNT(cm) FROM CourseMember cm WHERE cm.courseId = :courseId AND cm.role = 'STUDENT' AND cm.deleted = false")

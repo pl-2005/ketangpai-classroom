@@ -95,7 +95,7 @@ public class CourseService extends BaseService {
             throw new BusinessException(400, "课程已归档，无法加入");
         }
 
-        return courseMemberRepository.findByCourseIdAndUserId(course.getId(), userId)
+        return courseMemberRepository.findByCourseIdAndUserIdIncludeDeleted(course.getId(), userId)
                 .map(member -> restoreFormerMember(member))
                 .orElseGet(() -> courseMemberRepository.save(CourseMember.builder()
                         .courseId(course.getId())
