@@ -64,6 +64,13 @@ export default function CourseDetail() {
 
   const isTeacher = course?.role === 'CREATOR' || course?.role === 'TEACHER';
 
+  const disabledDate = (current: dayjs.Dayjs | null) => {
+    if (!current) {
+      return false;
+    }
+    return current.isBefore(dayjs().startOf('day'));
+  };
+
   const fetchCourse = async () => {
     try {
       const data = await courseApi.getCourseDetail(numCourseId) as unknown as Course;
@@ -454,7 +461,7 @@ export default function CourseDetail() {
             <InputNumber min={1} max={999} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="deadline" label="截止时间">
-            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} />
+            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} disabledDate={disabledDate} />
           </Form.Item>
           <Form.Item name="allowResubmit" label="允许重复提交" valuePropName="checked">
             <Switch />
@@ -487,7 +494,7 @@ export default function CourseDetail() {
             <InputNumber min={1} max={999} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="deadline" label="截止时间">
-            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} />
+            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} disabledDate={disabledDate} />
           </Form.Item>
           <Form.Item name="allowResubmit" label="允许重复提交" valuePropName="checked">
             <Switch />
