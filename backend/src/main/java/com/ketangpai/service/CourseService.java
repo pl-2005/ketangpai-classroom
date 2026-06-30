@@ -84,7 +84,8 @@ public class CourseService extends BaseService {
     }
 
     /**
-     * 通过课程号加入课程。所有用户先以学生权限加入；教师管理权限由创建者明确授予。
+     * 通过课程号加入课程。根据用户全局角色自动分配课程内角色：
+     * 教师账号加入即为课程教师，学生账号加入即为学生。
      */
     @Transactional
     public CourseMember joinByCode(Long userId, String rawCourseCode) {
@@ -95,12 +96,16 @@ public class CourseService extends BaseService {
             throw new BusinessException(400, "课程已归档，无法加入");
         }
 
+        User user = getEnabledUserOrThrow(userId);
+        CourseMemberRole role = user.getRole() == UserRole.TEACHER
+                ? CourseMemberRole.TEACHER : CourseMemberRole.STUDENT;
+
         return courseMemberRepository.findByCourseIdAndUserIdIncludeDeleted(course.getId(), userId)
-                .map(member -> restoreFormerMember(member))
+                .map(member -> restoreFormerMember(member, role))
                 .orElseGet(() -> courseMemberRepository.save(CourseMember.builder()
                         .courseId(course.getId())
                         .userId(userId)
-                        .role(CourseMemberRole.STUDENT)
+                        .role(role)
                         .isArchived(false)
                         .build()));
     }
@@ -208,13 +213,13 @@ public class CourseService extends BaseService {
         courseMemberRepository.saveAll(members);
     }
 
-    private CourseMember restoreFormerMember(CourseMember member) {
+    private CourseMember restoreFormerMember(CourseMember member, CourseMemberRole role) {
         if (!member.getDeleted()) {
             throw new BusinessException(409, "你已加入该课程");
         }
         member.setDeleted(false);
         member.setIsArchived(false);
-        member.setRole(CourseMemberRole.STUDENT);
+        member.setRole(role);
         return courseMemberRepository.save(member);
     }
 
