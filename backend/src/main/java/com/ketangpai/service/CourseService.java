@@ -110,7 +110,7 @@ public class CourseService extends BaseService {
         CourseMember member = getMemberOrThrow(courseId, userId);
         Course course = getCourseOrThrow(courseId);
         long memberCount = courseMemberRepository.countActiveMembersByCourseId(courseId);
-        return toDetail(course, member.getRole(), memberCount);
+        return toDetail(course, member.getRole(), memberCount, member.getIsArchived());
     }
 
     /** 获取课程成员展示信息。 */
@@ -271,6 +271,13 @@ public class CourseService extends BaseService {
     private CourseDetailResponse toDetail(Course course,
                                           CourseMemberRole role,
                                           long memberCount) {
+        return toDetail(course, role, memberCount, false);
+    }
+
+    private CourseDetailResponse toDetail(Course course,
+                                          CourseMemberRole role,
+                                          long memberCount,
+                                          boolean isArchived) {
         return new CourseDetailResponse(
                 course.getId(),
                 course.getName(),
@@ -281,6 +288,7 @@ public class CourseService extends BaseService {
                 course.getCreatorId(),
                 role,
                 memberCount,
+                isArchived,
                 course.getCreateTime(),
                 course.getUpdateTime());
     }
