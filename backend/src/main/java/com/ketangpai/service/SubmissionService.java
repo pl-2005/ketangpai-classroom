@@ -5,6 +5,7 @@ import com.ketangpai.model.entity.CourseMember;
 import com.ketangpai.model.entity.Submission;
 import com.ketangpai.model.entity.SubmissionFile;
 import com.ketangpai.model.entity.TempFile;
+import com.ketangpai.model.entity.User;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.AssignmentStatus;
 import com.ketangpai.model.enums.CourseMemberRole;
@@ -15,6 +16,7 @@ import com.ketangpai.repository.CourseMemberRepository;
 import com.ketangpai.repository.SubmissionFileRepository;
 import com.ketangpai.repository.SubmissionRepository;
 import com.ketangpai.repository.TempFileRepository;
+import com.ketangpai.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class SubmissionService extends BaseService {
     private final SubmissionFileRepository submissionFileRepository;
     private final AssignmentRepository assignmentRepository;
     private final TempFileRepository tempFileRepository;
+    private final UserRepository userRepository;
     private final FileService fileService;
     private final NotificationService notificationService;
     private final AiGradingService aiGradingService;
@@ -40,6 +43,7 @@ public class SubmissionService extends BaseService {
                              SubmissionFileRepository submissionFileRepository,
                              AssignmentRepository assignmentRepository,
                              TempFileRepository tempFileRepository,
+                             UserRepository userRepository,
                              FileService fileService,
                              NotificationService notificationService,
                              AiGradingService aiGradingService) {
@@ -48,6 +52,7 @@ public class SubmissionService extends BaseService {
         this.submissionFileRepository = submissionFileRepository;
         this.assignmentRepository = assignmentRepository;
         this.tempFileRepository = tempFileRepository;
+        this.userRepository = userRepository;
         this.fileService = fileService;
         this.notificationService = notificationService;
         this.aiGradingService = aiGradingService;
@@ -137,26 +142,51 @@ public class SubmissionService extends BaseService {
         CourseMember member = getMemberOrThrow(assignment.getCourseId(), userId);
         boolean isStudent = member.getRole() == CourseMemberRole.STUDENT;
 
+        List<Submission> submissions;
+
         if (isStudent) {
             // 学生仅返回自己的提交
-            return submissionRepository.findByAssignmentIdAndStudentId(assignmentId, userId)
+            submissions = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, userId)
                     .stream().toList();
-        }
-
-        // 教师（含创建者）返回全部提交
-        if (statusFilter != null) {
+        } else if (statusFilter != null) {
+            // 教师（含创建者）按状态筛选返回
             SubmissionStatus status = SubmissionStatus.valueOf(statusFilter);
-            return submissionRepository.findByAssignmentId(assignmentId).stream()
+            submissions = submissionRepository.findByAssignmentId(assignmentId).stream()
                     .filter(s -> s.getStatus() == status)
                     .toList();
+        } else {
+            submissions = submissionRepository.findByAssignmentId(assignmentId);
         }
-        return submissionRepository.findByAssignmentId(assignmentId);
+
+        // 填充学生姓名和用户名
+        populateStudentInfo(submissions);
+        return submissions;
+    }
+
+    /** 从 User 表批量填充 studentName / studentUsername */
+    private void populateStudentInfo(List<Submission> submissions) {
+        if (submissions.isEmpty()) return;
+        var userIds = submissions.stream().map(Submission::getStudentId).distinct().toList();
+        var userMap = userRepository.findAllById(userIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        User::getId,
+                        u -> u));
+        for (Submission s : submissions) {
+            var u = userMap.get(s.getStudentId());
+            if (u != null) {
+                s.setStudentName(u.getRealName());
+                s.setStudentUsername(u.getUsername());
+            }
+        }
     }
 
     /** 获取单个提交详情（教师或提交者本人可查看） */
     public Submission getDetail(Long submissionId, Long userId) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new BusinessException(404, "提交不存在"));
+
+        // 填充学生信息
+        populateStudentInfo(List.of(submission));
 
         // 提交者本人可查看自己的提交
         if (submission.getStudentId().equals(userId)) {

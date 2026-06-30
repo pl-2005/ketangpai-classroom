@@ -16,6 +16,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.persistence.Transient;
+
 import java.time.LocalDateTime;
 
 /**
@@ -43,6 +45,14 @@ public class Submission {
 
     @Column(nullable = false)
     private Long studentId;
+
+    /** 学生姓名（非持久化，查询时从 User 表填充） */
+    @Transient
+    private String studentName;
+
+    /** 学生用户名（非持久化，查询时从 User 表填充） */
+    @Transient
+    private String studentUsername;
 
     @Column(columnDefinition = "TEXT")
     private String content;

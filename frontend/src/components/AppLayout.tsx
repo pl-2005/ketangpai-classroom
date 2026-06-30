@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, App } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, App, Badge } from 'antd';
 import {
   BookOutlined,
   BellOutlined,
@@ -16,7 +16,7 @@ import {
   CameraOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { userApi } from '../api';
+import { userApi, notificationsApi } from '../api';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -43,6 +43,7 @@ export default function AppLayout() {
   const { token: themeToken } = theme.useToken();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // 页面加载时获取头像预签名 URL
   useEffect(() => {
@@ -58,6 +59,26 @@ export default function AppLayout() {
     };
     fetchAvatar();
   }, [user?.id]);
+
+  // 定期轮询未读消息数（每 30 秒），监听到已读事件时立即刷新
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const data = await notificationsApi.getUnreadCount() as unknown as { count: number };
+        setUnreadCount(data?.count ?? 0);
+      } catch {
+        // 静默处理
+      }
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, 30000);
+    const onUpdated = () => fetchUnread();
+    window.addEventListener('notifications-updated', onUpdated);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('notifications-updated', onUpdated);
+    };
+  }, []);
 
   // 根据当前路径确定选中菜单
   const selectedKey = menuItems.find((item) =>
@@ -178,7 +199,9 @@ export default function AppLayout() {
           onClick={handleMenuClick}
           items={menuItems.map((item) => ({
             key: item.key,
-            icon: item.icon,
+            icon: item.key === 'notifications' && unreadCount > 0
+              ? <Badge dot offset={[-2, 4]}>{item.icon}</Badge>
+              : item.icon,
             label: item.label,
           }))}
           style={{ border: 'none' }}

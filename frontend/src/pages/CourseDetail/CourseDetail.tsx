@@ -29,6 +29,8 @@ interface AssignmentItem {
   maxScore: number;
   allowResubmit: boolean;
   createTime: string;
+  stats?: { totalStudents: number; submittedCount: number; gradedCount: number };
+  mySubmissionStatus?: string | null;
 }
 
 interface MemberItem {
@@ -117,7 +119,7 @@ export default function CourseDetail() {
     const actionLabels: Record<string, string> = {
       ARCHIVE: '个人归档',
       UNARCHIVE: '取消个人归档',
-      ARCHIVE_FOR_ALL: '归档课程',
+      ARCHIVE_FOR_ALL: '全部归档',
       RESTORE_FOR_ALL: '恢复课程',
       DELETE: '删除课程',
       LEAVE: '退课',
@@ -323,6 +325,27 @@ export default function CourseDetail() {
             >
               AI 答疑
             </Button>
+            {/* 个人归档：所有成员可见（含创建者） */}
+            {!isCourseArchived && !isPersonalArchived && (
+              <Button
+                type="default"
+                icon={<InboxOutlined />}
+                loading={archiving}
+                onClick={() => handleArchiveAction('ARCHIVE')}
+              >
+                个人归档
+              </Button>
+            )}
+            {!isCourseArchived && isPersonalArchived && (
+              <Button
+                type="default"
+                icon={<UndoOutlined />}
+                loading={archiving}
+                onClick={() => handleArchiveAction('UNARCHIVE')}
+              >
+                取消个人归档
+              </Button>
+            )}
             {/* 课程级归档：仅创建者可见 */}
             {isCreator && !isCourseArchived && (
               <Popconfirm
@@ -330,7 +353,7 @@ export default function CourseDetail() {
                 onConfirm={() => handleArchiveAction('ARCHIVE_FOR_ALL')}
               >
                 <Button type="default" icon={<InboxOutlined />} loading={archiving}>
-                  归档课程
+                  全部归档
                 </Button>
               </Popconfirm>
             )}
@@ -358,45 +381,25 @@ export default function CourseDetail() {
                 </Popconfirm>
               </>
             )}
-            {/* 个人归档：非创建者成员可见 */}
-            {!isCreator && !isPersonalArchived && (
-              <Button
-                type="default"
-                icon={<InboxOutlined />}
-                loading={archiving}
-                onClick={() => handleArchiveAction('ARCHIVE')}
-              >
-                个人归档
-              </Button>
-            )}
+            {/* 退课：仅非创建者且已个人归档时可见 */}
             {!isCreator && isPersonalArchived && (
-              <>
+              <Popconfirm
+                title="确认退出课程？"
+                description="退课后需重新使用课程号加入"
+                onConfirm={() => handleArchiveAction('LEAVE')}
+                okText="确认退课"
+                okButtonProps={{ danger: true }}
+                cancelText="取消"
+              >
                 <Button
                   type="default"
-                  icon={<UndoOutlined />}
+                  danger
+                  icon={<LogoutOutlined />}
                   loading={archiving}
-                  onClick={() => handleArchiveAction('UNARCHIVE')}
                 >
-                  取消归档
+                  退课
                 </Button>
-                <Popconfirm
-                  title="确认退出课程？"
-                  description="退课后需重新使用课程号加入"
-                  onConfirm={() => handleArchiveAction('LEAVE')}
-                  okText="确认退课"
-                  okButtonProps={{ danger: true }}
-                  cancelText="取消"
-                >
-                  <Button
-                    type="default"
-                    danger
-                    icon={<LogoutOutlined />}
-                    loading={archiving}
-                  >
-                    退课
-                  </Button>
-                </Popconfirm>
-              </>
+              </Popconfirm>
             )}
           </Space>
         </div>
@@ -430,7 +433,7 @@ export default function CourseDetail() {
                       style={{ marginBottom: 12 }}
                       title={
                         <Space>
-                          {statusTag(a.status)}
+                          {isTeacher && statusTag(a.status)}
                           <Text strong>{a.title}</Text>
                         </Space>
                       }
@@ -510,7 +513,7 @@ export default function CourseDetail() {
                       }
                     >
                       {a.content && <Paragraph ellipsis={{ rows: 2 }}>{a.content}</Paragraph>}
-                      <Space size="large">
+                      <Space size="large" style={{ marginBottom: 8 }}>
                         <Text type="secondary">满分：{a.maxScore} 分</Text>
                         {a.deadline && <Text type={dayjs(a.deadline).isBefore(dayjs()) ? 'danger' : 'secondary'}>
                           截止：{dayjs(a.deadline).format('YYYY-MM-DD HH:mm')}
@@ -519,6 +522,34 @@ export default function CourseDetail() {
                           {a.allowResubmit ? '允许重复提交' : '不允许重复提交'}
                         </Text>
                       </Space>
+                      {/* 学生端：显示完成情况 */}
+                      {!isTeacher && (
+                        <div>
+                          {a.mySubmissionStatus
+                            && a.mySubmissionStatus !== 'DRAFT' ? (
+                            <Tag color={
+                              a.mySubmissionStatus === 'GRADED' ? 'green' :
+                              a.mySubmissionStatus === 'RETURNED' ? 'red' :
+                              'blue'
+                            }>
+                              {a.mySubmissionStatus === 'SUBMITTED' ? '已提交' :
+                               a.mySubmissionStatus === 'GRADED' ? '已批阅' :
+                               a.mySubmissionStatus === 'RETURNED' ? '已退回' : a.mySubmissionStatus}
+                            </Tag>
+                          ) : (
+                            <Tag color="default">未提交</Tag>
+                          )}
+                        </div>
+                      )}
+                      {/* 教师端：显示提交统计 */}
+                      {isTeacher && a.stats && (
+                        <div>
+                          <Text type="secondary">
+                            已提交：{a.stats.submittedCount}/{a.stats.totalStudents}
+                            {a.stats.gradedCount > 0 && `  |  已批阅：${a.stats.gradedCount}`}
+                          </Text>
+                        </div>
+                      )}
                     </Card>
                   )}
                 />

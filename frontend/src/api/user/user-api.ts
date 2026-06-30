@@ -28,9 +28,7 @@ export const userApi = {
   uploadAvatar: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return request.post<UploadAvatarResponse>('/api/user/avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return request.post<UploadAvatarResponse>('/api/user/avatar', formData);
   },
 
   getAvatarUrl: () => {

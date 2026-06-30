@@ -17,9 +17,7 @@ export const filesApi = {
   uploadFile: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return request.post<UploadFileResponse>('/api/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return request.post<UploadFileResponse>('/api/files/upload', formData);
   },
 
   downloadFile: (fileId: number) => {

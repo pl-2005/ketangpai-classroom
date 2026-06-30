@@ -14,11 +14,11 @@ import java.util.List;
 @Repository
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
-    List<Assignment> findByCourseIdOrderByDeadlineAsc(Long courseId);
+    List<Assignment> findByCourseIdOrderByCreateTimeDesc(Long courseId);
 
-    List<Assignment> findByCourseIdAndStatus(Long courseId, AssignmentStatus status);
+    List<Assignment> findByCourseIdAndStatusOrderByCreateTimeDesc(Long courseId, AssignmentStatus status);
 
-    List<Assignment> findByCourseIdAndStatusInOrderByDeadlineAsc(Long courseId, List<AssignmentStatus> statuses);
+    List<Assignment> findByCourseIdAndStatusInOrderByCreateTimeDesc(Long courseId, List<AssignmentStatus> statuses);
 
     /** 查询某课程下即将截止的作业（截止时间在指定时间之前且已发布） */
     List<Assignment> findByCourseIdAndStatusAndDeadlineBeforeOrderByDeadlineAsc(

@@ -13,7 +13,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import jakarta.persistence.Transient;
+
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 作业表
@@ -55,4 +58,12 @@ public class Assignment extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean deleted = false;
+
+    /** 提交统计（非持久化）— 教师端填充 */
+    @Transient
+    private Map<String, Object> stats;
+
+    /** 当前用户的提交状态（非持久化）— 学生端填充 */
+    @Transient
+    private String mySubmissionStatus;
 }

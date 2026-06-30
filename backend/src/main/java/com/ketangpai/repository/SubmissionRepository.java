@@ -26,6 +26,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     @Query("SELECT s FROM Submission s WHERE s.assignmentId = :assignmentId AND s.status IN ('SUBMITTED', 'GRADED', 'RETURNED')")
     List<Submission> findSubmittedByAssignmentId(@Param("assignmentId") Long assignmentId);
 
+    /** 批量查询多个作业的提交（用于统计） */
+    List<Submission> findByAssignmentIdIn(List<Long> assignmentIds);
+
     /** 统计某作业的提交状态数量 */
     long countByAssignmentIdAndStatus(Long assignmentId, SubmissionStatus status);
 

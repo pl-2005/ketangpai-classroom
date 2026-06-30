@@ -208,7 +208,7 @@ public class ChatController {
     public Result<Map<String, String>> rebuildKnowledge(@CurrentUserId Long userId,
                                                         @PathVariable Long courseId) {
         List<Material> materials = materialRepository.findByCourseIdOrderBySortOrder(courseId);
-        List<Assignment> assignments = assignmentRepository.findByCourseIdOrderByDeadlineAsc(courseId);
+        List<Assignment> assignments = assignmentRepository.findByCourseIdOrderByCreateTimeDesc(courseId);
         List<Topic> topics = topicRepository.findByCourseIdOrderByStatusDescCreateTimeDesc(courseId);
 
         knowledgeBaseService.rebuildCourseKnowledge(courseId, materials, assignments, topics);

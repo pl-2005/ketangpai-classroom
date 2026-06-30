@@ -11,7 +11,7 @@ import {
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
-import { topicsApi, type Topic, type TopicReply, type TopicStatus } from '../../api';
+import { topicsApi, courseApi, type Topic, type TopicReply, type TopicStatus } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 dayjs.extend(relativeTime);
@@ -31,6 +31,7 @@ export default function TopicDetail() {
   const [topic, setTopic] = useState<Topic | null>(null);
   const [replies, setReplies] = useState<TopicReply[]>([]);
   const [loading, setLoading] = useState(true);
+  const [courseRole, setCourseRole] = useState<string | null>(null);
 
   // Reply form
   const [replyContent, setReplyContent] = useState('');
@@ -68,8 +69,21 @@ export default function TopicDetail() {
     fetchTopic();
   }, [fetchTopic]);
 
-  const isAuthor = topic?.authorId === user?.id || (topic?.authorId === null && topic?.isAnonymous && false);
-  const isTeacherRole = true; // Will check via topic course membership
+  // 获取当前用户在课程中的角色
+  useEffect(() => {
+    if (!numCourseId) return;
+    (async () => {
+      try {
+        const course = await courseApi.getCourseDetail(numCourseId) as unknown as { role: string };
+        setCourseRole(course?.role || null);
+      } catch {
+        // 静默处理
+      }
+    })();
+  }, [numCourseId]);
+
+  const isAuthor = topic?.authorId === user?.id;
+  const isTeacherRole = courseRole === 'CREATOR' || courseRole === 'TEACHER';
   const canModerate = isAuthor || isTeacherRole;
 
   const handleReply = async () => {
@@ -213,43 +227,45 @@ export default function TopicDetail() {
             {topic.content}
           </Paragraph>
 
-          {/* Teacher actions */}
-          <Space>
-            <Button
-              size="small"
-              icon={topic.status === 'PINNED' ? <UnlockOutlined /> : <PushpinOutlined />}
-              onClick={() => handleStatusChange(topic.status === 'PINNED' ? 'NORMAL' : 'PINNED')}
-            >
-              {topic.status === 'PINNED' ? '取消置顶' : '置顶'}
-            </Button>
-            <Button
-              size="small"
-              icon={topic.status === 'LOCKED' ? <UnlockOutlined /> : <LockOutlined />}
-              onClick={() => handleStatusChange(topic.status === 'LOCKED' ? 'NORMAL' : 'LOCKED')}
-            >
-              {topic.status === 'LOCKED' ? '解除锁定' : '锁定'}
-            </Button>
-            <Button
-              size="small"
-              icon={topic.discussionEnabled ? <StopOutlined /> : <CheckCircleOutlined />}
-              onClick={handleToggleDiscussion}
-            >
-              {topic.discussionEnabled ? '关闭讨论' : '开启讨论'}
-            </Button>
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => {
-                editForm.setFieldsValue({ title: topic.title, content: topic.content });
-                setEditOpen(true);
-              }}
-            >
-              编辑
-            </Button>
-            <Popconfirm title="确认删除该话题及所有回复？" onConfirm={handleDeleteTopic}>
-              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
-            </Popconfirm>
-          </Space>
+          {/* 操作按钮 — 仅话题作者和课程教师可见 */}
+          {canModerate && (
+            <Space>
+              <Button
+                size="small"
+                icon={topic.status === 'PINNED' ? <UnlockOutlined /> : <PushpinOutlined />}
+                onClick={() => handleStatusChange(topic.status === 'PINNED' ? 'NORMAL' : 'PINNED')}
+              >
+                {topic.status === 'PINNED' ? '取消置顶' : '置顶'}
+              </Button>
+              <Button
+                size="small"
+                icon={topic.status === 'LOCKED' ? <UnlockOutlined /> : <LockOutlined />}
+                onClick={() => handleStatusChange(topic.status === 'LOCKED' ? 'NORMAL' : 'LOCKED')}
+              >
+                {topic.status === 'LOCKED' ? '解除锁定' : '锁定'}
+              </Button>
+              <Button
+                size="small"
+                icon={topic.discussionEnabled ? <StopOutlined /> : <CheckCircleOutlined />}
+                onClick={handleToggleDiscussion}
+              >
+                {topic.discussionEnabled ? '关闭讨论' : '开启讨论'}
+              </Button>
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  editForm.setFieldsValue({ title: topic.title, content: topic.content });
+                  setEditOpen(true);
+                }}
+              >
+                编辑
+              </Button>
+              <Popconfirm title="确认删除该话题及所有回复？" onConfirm={handleDeleteTopic}>
+                <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+              </Popconfirm>
+            </Space>
+          )}
         </Space>
       </Card>
 
@@ -282,9 +298,11 @@ export default function TopicDetail() {
                         <Button type="link" size="small" onClick={() => handleReplyTo(reply)}>
                           回复
                         </Button>
-                        <Popconfirm title="确认删除？" onConfirm={() => handleDeleteReply(reply.id)}>
-                          <Button type="link" size="small" danger>删除</Button>
-                        </Popconfirm>
+                        {(reply.authorId === user?.id || canModerate) && (
+                          <Popconfirm title="确认删除？" onConfirm={() => handleDeleteReply(reply.id)}>
+                            <Button type="link" size="small" danger>删除</Button>
+                          </Popconfirm>
+                        )}
                       </Space>
                     </Space>
                   </Card>

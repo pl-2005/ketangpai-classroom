@@ -73,6 +73,7 @@ export default function NotificationCenter() {
       await notificationsApi.markAsRead(id);
       message.success('已标记为已读');
       fetchNotifications(pagination.current, pagination.pageSize, typeFilter);
+      window.dispatchEvent(new Event('notifications-updated'));
     } catch {
       message.error('标记已读失败');
     }
@@ -83,6 +84,7 @@ export default function NotificationCenter() {
       await notificationsApi.markAllAsRead();
       message.success('已全部标记为已读');
       fetchNotifications(1, pagination.pageSize, typeFilter);
+      window.dispatchEvent(new Event('notifications-updated'));
     } catch {
       message.error('全部标记已读失败');
     }

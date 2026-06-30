@@ -3,10 +3,12 @@ package com.ketangpai.service;
 import com.ketangpai.model.entity.Assignment;
 import com.ketangpai.model.entity.AssignmentAttachment;
 import com.ketangpai.model.entity.CourseMember;
+import com.ketangpai.model.entity.Submission;
 import com.ketangpai.exception.BusinessException;
 import com.ketangpai.model.enums.AssignmentStatus;
 import com.ketangpai.model.enums.CourseMemberRole;
 import com.ketangpai.model.enums.NotificationType;
+import com.ketangpai.model.enums.SubmissionStatus;
 import com.ketangpai.repository.AssignmentAttachmentRepository;
 import com.ketangpai.repository.AssignmentRepository;
 import com.ketangpai.repository.CourseMemberRepository;
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 作业管理服务
@@ -46,21 +50,62 @@ public class AssignmentService extends BaseService {
         getMemberOrThrow(courseId, userId);
         boolean isTeacher = isTeacher(courseId, userId);
 
+        List<Assignment> assignments;
+
         if (statusFilter != null) {
             AssignmentStatus requestedStatus = AssignmentStatus.valueOf(statusFilter);
             // 学生不能查看草稿状态作业
             if (!isTeacher && requestedStatus == AssignmentStatus.DRAFT) {
                 return List.of();
             }
-            return assignmentRepository.findByCourseIdAndStatus(courseId, requestedStatus);
+            assignments = assignmentRepository.findByCourseIdAndStatusOrderByCreateTimeDesc(courseId, requestedStatus);
+        } else if (isTeacher) {
+            // 教师可查看所有作业，学生只能看到已发布和已关闭的作业
+            assignments = assignmentRepository.findByCourseIdOrderByCreateTimeDesc(courseId);
+        } else {
+            assignments = assignmentRepository.findByCourseIdAndStatusInOrderByCreateTimeDesc(
+                    courseId, List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED));
         }
 
-        // 教师可查看所有作业，学生只能看到已发布和已关闭的作业
+        if (assignments.isEmpty()) return assignments;
+
+        // 批量获取所有相关提交记录
+        List<Long> assignmentIds = assignments.stream().map(Assignment::getId).toList();
+        List<Submission> allSubmissions = submissionRepository.findByAssignmentIdIn(assignmentIds);
+
         if (isTeacher) {
-            return assignmentRepository.findByCourseIdOrderByDeadlineAsc(courseId);
+            // 教师端：填充每个作业的提交统计
+            long totalStudents = courseMemberRepository.countStudentsByCourseId(courseId);
+            Map<Long, List<Submission>> grouped = allSubmissions.stream()
+                    .collect(Collectors.groupingBy(Submission::getAssignmentId));
+            for (Assignment a : assignments) {
+                List<Submission> subs = grouped.getOrDefault(a.getId(), List.of());
+                long submittedCount = subs.stream()
+                        .filter(s -> s.getStatus() == SubmissionStatus.SUBMITTED
+                                || s.getStatus() == SubmissionStatus.GRADED
+                                || s.getStatus() == SubmissionStatus.RETURNED)
+                        .count();
+                long gradedCount = subs.stream()
+                        .filter(s -> s.getStatus() == SubmissionStatus.GRADED)
+                        .count();
+                a.setStats(Map.of(
+                        "totalStudents", totalStudents,
+                        "submittedCount", submittedCount,
+                        "gradedCount", gradedCount
+                ));
+            }
+        } else {
+            // 学生端：填充当前用户对每个作业的提交状态
+            Map<Long, Submission> mySubmissions = allSubmissions.stream()
+                    .filter(s -> s.getStudentId().equals(userId))
+                    .collect(Collectors.toMap(Submission::getAssignmentId, s -> s, (s1, s2) -> s1));
+            for (Assignment a : assignments) {
+                Submission mine = mySubmissions.get(a.getId());
+                a.setMySubmissionStatus(mine != null ? mine.getStatus().name() : null);
+            }
         }
-        return assignmentRepository.findByCourseIdAndStatusInOrderByDeadlineAsc(
-                courseId, List.of(AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED));
+
+        return assignments;
     }
 
     public Assignment getDetail(Long assignmentId, Long userId) {
