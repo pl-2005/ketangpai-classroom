@@ -10,11 +10,6 @@ spring:
   profiles:
     active: dev
 
-  # JWT 无状态认证，无需默认 UserDetailsService
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-
 ---
 spring:
   config:

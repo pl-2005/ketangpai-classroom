@@ -89,7 +89,7 @@ export const assignmentsApi = {
   },
 
   urgeAssignment: (assignmentId: number, data?: UrgeRequest) => {
-    return request.post(`/api/assignments/${assignmentId}/urge`, data);
+    return request.post(`/api/assignments/${assignmentId}/urge`, data || {});
   },
 };
 

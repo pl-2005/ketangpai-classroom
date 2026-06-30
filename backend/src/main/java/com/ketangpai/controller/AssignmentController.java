@@ -85,9 +85,9 @@ public class AssignmentController {
     @PostMapping("/assignments/{assignmentId}/urge")
     public Result<Map<String, Object>> urge(@CurrentUserId Long userId,
                                              @PathVariable Long assignmentId,
-                                             @RequestBody Map<String, Object> body) {
+                                             @RequestBody(required = false) Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Long> studentIds = (List<Long>) body.get("studentIds");
+        List<Long> studentIds = body != null ? (List<Long>) body.get("studentIds") : null;
         long count = assignmentService.urge(assignmentId, userId, studentIds);
         return Result.ok(Map.of("urgedCount", count));
     }
