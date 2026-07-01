@@ -145,8 +145,7 @@ public class MaterialService extends BaseService {
                 .orElseThrow(() -> new BusinessException(404, "资料不存在"));
         getMemberOrThrow(material.getCourseId(), userId);
 
-        return fileService.getDownloadUrlByPath(material.getFileUrl().substring("/api/files/".length()),
-                material.getTitle());
+        return fileService.getDownloadUrlByPath(material.getFileUrl(), material.getTitle());
     }
 
     @Transactional

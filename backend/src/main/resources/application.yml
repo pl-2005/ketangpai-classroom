@@ -71,6 +71,8 @@ spring:
         port: ${QDRANT_PORT:6334}
         collection-name: ${QDRANT_COLLECTION:ketangpai-kb}
         initialize-schema: true
+        use-tls: ${QDRANT_USE_TLS:true}
+        api-key: ${QDRANT_API_KEY:}
 
 # JWT 配置
 jwt:

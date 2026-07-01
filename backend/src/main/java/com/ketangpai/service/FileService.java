@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class FileService {
 
+    private static final String PUBLIC_FILE_PREFIX = "/api/files/";
+
     /** 单文件最大 50MB */
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
 
@@ -259,30 +261,32 @@ public class FileService {
      * 用于资料等直接存储 objectPath 的场景。
      */
     public String getPresignedUrlByPath(String objectPath) {
-        if (objectPath == null || objectPath.isBlank()) {
+        String normalizedPath = normalizeObjectPath(objectPath);
+        if (normalizedPath == null || normalizedPath.isBlank()) {
             throw new BusinessException(400, "文件路径为空");
         }
-        return generatePresignedUrl(objectPath);
+        return generatePresignedUrl(normalizedPath);
     }
 
     /**
      * 根据 MinIO 对象路径生成预签名下载 URL（强制下载而非预览）
      */
     public String getDownloadUrlByPath(String objectPath, String fileName) {
-        if (objectPath == null || objectPath.isBlank()) {
+        String normalizedPath = normalizeObjectPath(objectPath);
+        if (normalizedPath == null || normalizedPath.isBlank()) {
             throw new BusinessException(400, "文件路径为空");
         }
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .bucket(minioConfig.getBucket())
-                            .object(objectPath)
+                            .object(normalizedPath)
                             .method(Http.Method.GET)
                             .expiry(PRESIGNED_EXPIRY_MINUTES, TimeUnit.MINUTES)
                             .extraQueryParams(Map.of("response-content-disposition", "attachment; filename=\"" + fileName + "\""))
                             .build());
         } catch (Exception e) {
-            log.error("生成预签名下载 URL 失败: path={}", objectPath, e);
+            log.error("生成预签名下载 URL 失败: path={}", normalizedPath, e);
             throw new BusinessException(500, "文件下载链接生成失败");
         }
     }
@@ -294,19 +298,20 @@ public class FileService {
      * 用于服务端文本提取等场景。
      */
     public byte[] downloadBytes(String objectPath) {
-        if (objectPath == null || objectPath.isBlank()) {
+        String normalizedPath = normalizeObjectPath(objectPath);
+        if (normalizedPath == null || normalizedPath.isBlank()) {
             throw new BusinessException(400, "文件路径为空");
         }
         try (var stream = minioClient.getObject(
                 GetObjectArgs.builder()
                         .bucket(minioConfig.getBucket())
-                        .object(objectPath)
+                        .object(normalizedPath)
                         .build())) {
             return stream.readAllBytes();
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("MinIO 下载失败: path={}", objectPath, e);
+            log.error("MinIO 下载失败: path={}", normalizedPath, e);
             throw new BusinessException(500, "文件下载失败");
         }
     }
@@ -401,18 +406,45 @@ public class FileService {
 
     /** 生成 MinIO 预签名 GET URL */
     private String generatePresignedUrl(String objectPath) {
+        String normalizedPath = normalizeObjectPath(objectPath);
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .bucket(minioConfig.getBucket())
-                            .object(objectPath)
+                            .object(normalizedPath)
                             .method(Http.Method.GET)
                             .expiry(PRESIGNED_EXPIRY_MINUTES, TimeUnit.MINUTES)
                             .build());
         } catch (Exception e) {
-            log.error("生成预签名 URL 失败: path={}", objectPath, e);
+            log.error("生成预签名 URL 失败: path={}", normalizedPath, e);
             throw new BusinessException(500, "文件访问链接生成失败");
         }
+    }
+
+    /** 将前端公开文件路径还原为 MinIO 对象路径。 */
+    static String normalizeObjectPath(String objectPath) {
+        if (objectPath == null) {
+            return null;
+        }
+
+        String normalized = objectPath.trim();
+        int prefixIndex = normalized.indexOf(PUBLIC_FILE_PREFIX);
+        if (prefixIndex >= 0) {
+            normalized = normalized.substring(prefixIndex + PUBLIC_FILE_PREFIX.length());
+        } else if (normalized.startsWith("api/files/")) {
+            normalized = normalized.substring("api/files/".length());
+        }
+
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+
+        int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+
+        return normalized;
     }
 
     /** 校验文件大小和类型 */

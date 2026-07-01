@@ -23,10 +23,13 @@ export default function BatchProgressModal({ assignmentId, visible, onClose }: P
   const { message } = App.useApp();
   const [task, setTask] = useState<GradingBatchTask | null>(null);
   const [polling, setPolling] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (visible) {
+      setTask(null);
+      setStartupError(null);
       triggerBatch();
     }
     return () => {
@@ -35,13 +38,21 @@ export default function BatchProgressModal({ assignmentId, visible, onClose }: P
   }, [visible, assignmentId]);
 
   const triggerBatch = async () => {
+    setStartupError(null);
+    setTask(null);
     try {
-      const result: any = await aiGradingApi.batchAiGrading(assignmentId);
+      const result = await aiGradingApi.batchAiGrading(assignmentId) as unknown as GradingBatchTask;
+      if (!result?.id) {
+        throw new Error('未获取到批量批阅任务');
+      }
       setTask(result);
       startPolling(result.id);
     } catch (e: any) {
-      message.error('启动 AI 批量批阅失败');
+      const errorMessage = e?.message || '启动 AI 批量批阅失败';
+      setStartupError(errorMessage);
       setTask(null);
+      setPolling(false);
+      message.error(errorMessage);
     }
   };
 
@@ -49,8 +60,7 @@ export default function BatchProgressModal({ assignmentId, visible, onClose }: P
     setPolling(true);
     intervalRef.current = setInterval(async () => {
       try {
-        const results: any = await aiGradingApi.getBatchTaskStatus(assignmentId);
-        const currentTask = Array.isArray(results) ? results.find((t: GradingBatchTask) => t.id === taskId) : null;
+        const currentTask = await aiGradingApi.getBatchTaskDetail(taskId) as unknown as GradingBatchTask;
         if (currentTask) {
           setTask(currentTask);
           if (['COMPLETED', 'PARTIALLY_FAILED', 'FAILED'].includes(currentTask.status)) {
@@ -91,14 +101,28 @@ export default function BatchProgressModal({ assignmentId, visible, onClose }: P
       open={visible}
       onCancel={handleClose}
       footer={
-        <Button onClick={handleClose}>
-          {task?.status === 'COMPLETED' ? '完成' : '关闭'}
-        </Button>
+        <Space>
+          {startupError && (
+            <Button type="primary" onClick={triggerBatch}>
+              重试
+            </Button>
+          )}
+          <Button onClick={handleClose}>
+            {task?.status === 'COMPLETED' ? '完成' : '关闭'}
+          </Button>
+        </Space>
       }
-      closable={!polling || ['COMPLETED', 'PARTIALLY_FAILED', 'FAILED'].includes(task?.status || '')}
+      closable={!!startupError || !polling || ['COMPLETED', 'PARTIALLY_FAILED', 'FAILED'].includes(task?.status || '')}
       maskClosable={false}
     >
-      {!task ? (
+      {startupError ? (
+        <div style={{ textAlign: 'center', padding: 24 }}>
+          <CloseCircleOutlined style={{ fontSize: 32, color: '#ff4d4f' }} />
+          <Text type="danger" style={{ display: 'block', marginTop: 12 }}>
+            {startupError}
+          </Text>
+        </div>
+      ) : !task ? (
         <div style={{ textAlign: 'center', padding: 24 }}>
           <LoadingOutlined style={{ fontSize: 32 }} />
           <Text style={{ display: 'block', marginTop: 12 }}>正在启动批量批阅...</Text>

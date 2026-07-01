@@ -22,6 +22,7 @@ import com.ketangpai.repository.SubmissionFileRepository;
 import com.ketangpai.repository.SubmissionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +59,7 @@ public class AiGradingService extends BaseService {
     private final RubricValidator rubricValidator;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AiGradingService(CourseMemberRepository courseMemberRepository,
                             AiGradingConfigRepository configRepository,
@@ -70,7 +72,8 @@ public class AiGradingService extends BaseService {
                             TextExtractionService textExtractionService,
                             RubricValidator rubricValidator,
                             NotificationService notificationService,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            ApplicationEventPublisher eventPublisher) {
         super(courseMemberRepository);
         this.configRepository = configRepository;
         this.resultRepository = resultRepository;
@@ -83,6 +86,7 @@ public class AiGradingService extends BaseService {
         this.rubricValidator = rubricValidator;
         this.notificationService = notificationService;
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     // ==================== 配置管理 ====================
@@ -228,8 +232,8 @@ public class AiGradingService extends BaseService {
                 .build();
         task = batchTaskRepository.save(task);
 
-        // 异步执行批量批阅
-        processBatchAsync(task.getId(), ungradedIds);
+        // 事务提交后异步执行批量批阅，启动接口立即返回任务信息
+        eventPublisher.publishEvent(new GradingBatchTaskRequestedEvent(task.getId(), ungradedIds));
 
         return task;
     }
@@ -237,8 +241,7 @@ public class AiGradingService extends BaseService {
     /**
      * 异步批量处理 — 逐份批阅，每份完成后更新进度。
      */
-    @Async
-    public void processBatchAsync(Long taskId, List<Long> submissionIds) {
+    public void processBatch(Long taskId, List<Long> submissionIds) {
         GradingBatchTask task = batchTaskRepository.findById(taskId).orElse(null);
         if (task == null) {
             log.error("批量任务不存在: taskId={}", taskId);

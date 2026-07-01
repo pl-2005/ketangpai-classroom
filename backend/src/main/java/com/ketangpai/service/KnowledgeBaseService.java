@@ -18,7 +18,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClient;
+
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,9 @@ public class KnowledgeBaseService {
     /** 相似度阈值 */
     private static final double SIMILARITY_THRESHOLD = 0.6;
 
+    /** 当前 Embedding 服务单次最多接受 10 条输入 */
+    private static final int VECTORSTORE_ADD_BATCH_SIZE = 10;
+
     /** 可提取文本的文件扩展名 */
     private static final Set<String> TEXT_EXTRACTABLE = Set.of("txt", "docx", "pdf");
 
@@ -61,6 +70,21 @@ public class KnowledgeBaseService {
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final FileService fileService;
     private final TextExtractionService textExtractionService;
+
+    @Value("${spring.ai.vectorstore.qdrant.host:localhost}")
+    private String qdrantHost;
+
+    @Value("${spring.ai.vectorstore.qdrant.port:6334}")
+    private int qdrantPort;
+
+    @Value("${spring.ai.vectorstore.qdrant.use-tls:false}")
+    private boolean qdrantUseTls;
+
+    @Value("${spring.ai.vectorstore.qdrant.api-key:}")
+    private String qdrantApiKey;
+
+    @Value("${spring.ai.vectorstore.qdrant.collection-name:ketangpai-kb}")
+    private String qdrantCollection;
 
     public KnowledgeBaseService(EmbeddingModel embeddingModel,
                                 VectorStore vectorStore,
@@ -72,6 +96,31 @@ public class KnowledgeBaseService {
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.fileService = fileService;
         this.textExtractionService = textExtractionService;
+    }
+
+    /** 初始化 Qdrant payload 索引，确保 courseId 过滤可用 */
+    @PostConstruct
+    public void initPayloadIndexes() {
+        try {
+            String scheme = qdrantUseTls ? "https" : "http";
+            String url = scheme + "://" + qdrantHost + ":" + qdrantPort
+                    + "/collections/" + qdrantCollection + "/index";
+            String body = "{\"field_name\":\"courseId\",\"field_type\":\"integer\"}";
+
+            RestClient client = RestClient.create();
+            client.put()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("api-key", qdrantApiKey)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            log.info("Qdrant payload 索引已就绪: courseId (integer) on {}", qdrantCollection);
+        } catch (Exception e) {
+            // 索引可能已存在（Qdrant 幂等），400/409 忽略
+            log.debug("Qdrant 索引初始化（可能已存在）: {}", e.getMessage());
+        }
     }
 
     // ==================== 索引事件（@Async 触发） ====================
@@ -158,7 +207,7 @@ public class KnowledgeBaseService {
             // Qdrant Document
             Document doc = new Document(
                     pointId,
-                    chunkContent,
+                    buildVectorDocumentContent(sourceType, sourceName, chunkContent),
                     Map.of(
                             "courseId", courseId,
                             "sourceType", sourceType.name(),
@@ -183,12 +232,19 @@ public class KnowledgeBaseService {
         }
 
         // 批量写入 VectorStore（Qdrant）
-        vectorStore.add(documents);
+        addToVectorStoreInBatches(documents);
         // 批量写入数据库
         knowledgeChunkRepository.saveAll(chunks);
 
         log.info("知识库索引: courseId={}, sourceType={}, sourceId={}, chunks={}",
                 courseId, sourceType, sourceId, chunks.size());
+    }
+
+    private void addToVectorStoreInBatches(List<Document> documents) {
+        for (int start = 0; start < documents.size(); start += VECTORSTORE_ADD_BATCH_SIZE) {
+            int end = Math.min(start + VECTORSTORE_ADD_BATCH_SIZE, documents.size());
+            vectorStore.add(new ArrayList<>(documents.subList(start, end)));
+        }
     }
 
     // ==================== 删除索引 ====================
@@ -239,6 +295,10 @@ public class KnowledgeBaseService {
         int k = topK > 0 ? topK : DEFAULT_TOP_K;
 
         try {
+            List<KnowledgeChunk> allCourseChunks = knowledgeChunkRepository.findByCourseId(courseId);
+            List<KnowledgeChunk> keywordMatches = findKeywordMatches(allCourseChunks, query, k);
+            List<KnowledgeChunk> vectorMatches = List.of();
+
             // 使用 courseId 过滤 + 相似度阈值
             Filter.Expression courseFilter = new FilterExpressionBuilder()
                     .eq("courseId", courseId)
@@ -251,37 +311,133 @@ public class KnowledgeBaseService {
                     .filterExpression(courseFilter)
                     .build();
 
-            List<Document> results = vectorStore.similaritySearch(request);
+            try {
+                List<Document> results = vectorStore.similaritySearch(request);
 
-            // 通过 qdrantPointId 反查 KnowledgeChunk
-            List<String> pointIds = results.stream()
-                    .map(Document::getId)
-                    .collect(Collectors.toList());
+                // 通过 qdrantPointId 反查 KnowledgeChunk
+                List<String> pointIds = results.stream()
+                        .map(Document::getId)
+                        .collect(Collectors.toList());
 
-            if (pointIds.isEmpty()) {
-                return List.of();
-            }
+                if (!pointIds.isEmpty()) {
+                    Map<String, KnowledgeChunk> chunkMap = allCourseChunks.stream()
+                            .filter(c -> pointIds.contains(c.getQdrantPointId()))
+                            .collect(Collectors.toMap(KnowledgeChunk::getQdrantPointId, c -> c, (a, b) -> a));
 
-            // 批量查询 DB（通过 pointId 匹配）
-            List<KnowledgeChunk> allCourseChunks = knowledgeChunkRepository.findByCourseId(courseId);
-            Map<String, KnowledgeChunk> chunkMap = allCourseChunks.stream()
-                    .filter(c -> pointIds.contains(c.getQdrantPointId()))
-                    .collect(Collectors.toMap(KnowledgeChunk::getQdrantPointId, c -> c, (a, b) -> a));
-
-            // 保持与向量搜索相同的顺序
-            List<KnowledgeChunk> ordered = new ArrayList<>();
-            for (Document doc : results) {
-                KnowledgeChunk chunk = chunkMap.get(doc.getId());
-                if (chunk != null) {
-                    ordered.add(chunk);
+                    // 保持与向量搜索相同的顺序
+                    List<KnowledgeChunk> ordered = new ArrayList<>();
+                    for (Document doc : results) {
+                        KnowledgeChunk chunk = chunkMap.get(doc.getId());
+                        if (chunk != null) {
+                            ordered.add(chunk);
+                        }
+                    }
+                    vectorMatches = ordered;
                 }
+            } catch (Exception e) {
+                log.warn("向量检索失败，降级使用关键词检索: courseId={}, query={}", courseId, query, e);
             }
 
-            return ordered;
+            return mergeAndLimit(vectorMatches, keywordMatches, k);
         } catch (Exception e) {
             log.error("知识库检索失败: courseId={}, query={}", courseId, query, e);
             return List.of();
         }
+    }
+
+    private String buildVectorDocumentContent(SourceType sourceType, String sourceName, String chunkContent) {
+        StringBuilder sb = new StringBuilder();
+        if (sourceName != null && !sourceName.isBlank()) {
+            sb.append("来源：").append(sourceName).append('\n');
+        }
+        sb.append("类型：").append(sourceType.name()).append('\n');
+        sb.append(chunkContent);
+        return sb.toString();
+    }
+
+    private List<KnowledgeChunk> findKeywordMatches(List<KnowledgeChunk> chunks, String query, int limit) {
+        if (chunks == null || chunks.isEmpty()) {
+            return List.of();
+        }
+
+        String normalizedQuery = normalizeMatchText(query);
+        if (normalizedQuery.isBlank()) {
+            return List.of();
+        }
+
+        List<KnowledgeChunk> sourceNameMatches = chunks.stream()
+                .filter(chunk -> sourceNameMatches(chunk.getSourceName(), normalizedQuery))
+                .sorted(Comparator
+                        .comparing(KnowledgeChunk::getSourceId, Comparator.nullsLast(Long::compareTo))
+                        .thenComparing(KnowledgeChunk::getChunkIndex, Comparator.nullsLast(Integer::compareTo)))
+                .limit(limit)
+                .toList();
+
+        if (!sourceNameMatches.isEmpty()) {
+            return sourceNameMatches;
+        }
+
+        return chunks.stream()
+                .filter(chunk -> normalizeMatchText(chunk.getContent()).contains(normalizedQuery))
+                .sorted(Comparator
+                        .comparing(KnowledgeChunk::getSourceId, Comparator.nullsLast(Long::compareTo))
+                        .thenComparing(KnowledgeChunk::getChunkIndex, Comparator.nullsLast(Integer::compareTo)))
+                .limit(limit)
+                .toList();
+    }
+
+    private boolean sourceNameMatches(String sourceName, String normalizedQuery) {
+        String normalizedSourceName = normalizeMatchText(stripExtension(sourceName));
+        return !normalizedSourceName.isBlank()
+                && (normalizedQuery.contains(normalizedSourceName)
+                || normalizedSourceName.contains(normalizedQuery));
+    }
+
+    private List<KnowledgeChunk> mergeAndLimit(List<KnowledgeChunk> primary,
+                                               List<KnowledgeChunk> secondary,
+                                               int limit) {
+        Map<String, KnowledgeChunk> merged = new LinkedHashMap<>();
+        addChunks(merged, primary);
+        addChunks(merged, secondary);
+        return merged.values().stream().limit(limit).toList();
+    }
+
+    private void addChunks(Map<String, KnowledgeChunk> merged, List<KnowledgeChunk> chunks) {
+        if (chunks == null) {
+            return;
+        }
+        for (KnowledgeChunk chunk : chunks) {
+            merged.putIfAbsent(chunkKey(chunk), chunk);
+        }
+    }
+
+    private String chunkKey(KnowledgeChunk chunk) {
+        if (chunk.getQdrantPointId() != null && !chunk.getQdrantPointId().isBlank()) {
+            return chunk.getQdrantPointId();
+        }
+        if (chunk.getId() != null) {
+            return "id:" + chunk.getId();
+        }
+        return chunk.getSourceType() + ":" + chunk.getSourceId() + ":" + chunk.getChunkIndex();
+    }
+
+    private String stripExtension(String fileName) {
+        if (fileName == null) {
+            return "";
+        }
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot <= 0) {
+            return fileName;
+        }
+        return fileName.substring(0, lastDot);
+    }
+
+    private String normalizeMatchText(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.toLowerCase()
+                .replaceAll("[\\s\\p{Punct}，。！？、；：“”‘’（）【】《》]+", "");
     }
 
     // ==================== 课程知识库重建 ====================
@@ -295,11 +451,15 @@ public class KnowledgeBaseService {
         // 清空现有索引
         List<KnowledgeChunk> existing = knowledgeChunkRepository.findByCourseId(courseId);
         if (!existing.isEmpty()) {
-            for (KnowledgeChunk chunk : existing) {
+            List<String> pointIds = existing.stream()
+                    .map(KnowledgeChunk::getQdrantPointId)
+                    .filter(id -> id != null && !id.isBlank())
+                    .toList();
+            if (!pointIds.isEmpty()) {
                 try {
-                    vectorStore.delete(chunk.getQdrantPointId());
+                    vectorStore.delete(pointIds);
                 } catch (Exception e) {
-                    log.warn("删除 Qdrant 向量失败: pointId={}", chunk.getQdrantPointId(), e);
+                    log.warn("删除 Qdrant 向量失败: courseId={}, count={}", courseId, pointIds.size(), e);
                 }
             }
             knowledgeChunkRepository.deleteAll(existing);
@@ -359,7 +519,8 @@ public class KnowledgeBaseService {
             try {
                 String extension = FileService.extractExtension(material.getTitle()).toLowerCase();
                 if (TEXT_EXTRACTABLE.contains(extension)) {
-                    byte[] bytes = fileService.downloadBytes(material.getFileUrl());
+                    String objectPath = FileService.normalizeObjectPath(material.getFileUrl());
+                    byte[] bytes = fileService.downloadBytes(objectPath);
                     String extracted = textExtractionService.extractFromBytes(bytes, extension);
                     sb.append(extracted);
                 } else {
