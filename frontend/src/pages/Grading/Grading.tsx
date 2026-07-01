@@ -7,9 +7,10 @@ import {
 import {
   ArrowLeftOutlined, CheckOutlined, RollbackOutlined,
   FileTextOutlined, RobotOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { submissionsApi, aiGradingApi, type Submission, type AiGradingResult, type DimensionScore } from '../../api';
+import { submissionsApi, aiGradingApi, type Submission, type AiGradingResult, type DimensionScore, materialsApi } from '../../api';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -38,6 +39,9 @@ export default function Grading() {
     try {
       const data: any = await submissionsApi.getSubmissionDetail(numSubmissionId);
       const sub = data?.submission || data;
+      if (data?.files) {
+        sub.files = data.files;
+      }
       setSubmission(sub);
       setScore(sub.score || null);
       setComment(sub.teacherComment || '');
@@ -60,7 +64,7 @@ export default function Grading() {
   const parseAiResult = (raw: any): AiGradingResult => {
     let dimensions: DimensionScore[] | undefined;
     if (raw.detailJson) {
-      try { dimensions = JSON.parse(raw.detailJson); } catch {/* keep undefined */}
+      try { dimensions = JSON.parse(raw.detailJson); } catch {/* keep undefined */ }
     }
     return {
       ...raw,
@@ -203,7 +207,22 @@ export default function Grading() {
               <Text type="secondary">附件：</Text>
               {submission.files.map((f) => (
                 <div key={f.id}>
-                  <Text>{f.fileName} ({f.fileSize} bytes)</Text>
+                  <Text>
+                    {f.fileName} 
+                    {/* ({f.fileSize} bytes) */}
+                    <Button
+                      type="text" size="small" icon={<DownloadOutlined />}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const res = await materialsApi.getMaterialDownloadUrl(f.id) as unknown as { url: string };
+                          window.open(res.url, '_blank');
+                        } catch {
+                          message.error('获取下载链接失败');
+                        }
+                      }}
+                    />
+                  </Text>
                 </div>
               ))}
             </div>

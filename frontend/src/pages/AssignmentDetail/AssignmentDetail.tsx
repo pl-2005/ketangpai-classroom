@@ -8,9 +8,10 @@ import {
   ArrowLeftOutlined, UploadOutlined, SendOutlined,
   CloseCircleOutlined, EditOutlined, FileTextOutlined,
   ReloadOutlined, EyeOutlined, RobotOutlined, SettingOutlined, SearchOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { assignmentsApi, submissionsApi, filesApi, aiGradingApi, type Assignment, type Submission, type AiGradingConfig } from '../../api';
+import { assignmentsApi, submissionsApi, filesApi, aiGradingApi, type Assignment, type Submission, type AiGradingConfig, materialsApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import AiGradingConfigPanel from '../../components/AiGrading/AiGradingConfigPanel';
 import BatchProgressModal from '../../components/AiGrading/BatchProgressModal';
