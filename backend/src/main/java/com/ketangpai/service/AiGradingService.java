@@ -162,6 +162,36 @@ public class AiGradingService extends BaseService {
         return doGrade(submission, assignment, config);
     }
 
+    /**
+     * 教师手动触发单份提交的 AI 批阅 — 创建任务后异步执行，避免长耗时阻塞前端请求。
+     */
+    @Transactional
+    public GradingBatchTask gradeSubmissionAsyncTask(Long submissionId, Long teacherId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new BusinessException(404, "提交不存在"));
+        var assignment = assignmentRepository.findById(submission.getAssignmentId())
+                .orElseThrow(() -> new BusinessException(404, "作业不存在"));
+        checkTeacher(assignment.getCourseId(), teacherId);
+
+        AiGradingConfig config = configRepository.findByAssignmentId(submission.getAssignmentId())
+                .orElseThrow(() -> new BusinessException(400, "未配置 AI 批阅"));
+        if (!config.getEnabled()) {
+            throw new BusinessException(400, "AI 批阅未启用");
+        }
+
+        GradingBatchTask task = GradingBatchTask.builder()
+                .assignmentId(submission.getAssignmentId())
+                .teacherId(teacherId)
+                .status(GradingBatchTaskStatus.PENDING)
+                .totalCount(1)
+                .build();
+        task = batchTaskRepository.save(task);
+
+        eventPublisher.publishEvent(new GradingBatchTaskRequestedEvent(task.getId(), List.of(submissionId)));
+
+        return task;
+    }
+
     // ==================== 异步自动批阅（学生提交后触发） ====================
 
     /**

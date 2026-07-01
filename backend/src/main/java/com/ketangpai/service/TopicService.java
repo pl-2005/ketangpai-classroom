@@ -241,8 +241,7 @@ public class TopicService extends BaseService {
             throw new BusinessException(403, "无权删除该回复");
         }
 
-        reply.setDeleted(true);
-        replyRepository.save(reply);
+        softDeleteReplyTree(reply);
     }
 
     @Transactional
@@ -297,5 +296,13 @@ public class TopicService extends BaseService {
         } catch (BusinessException e) {
             return false;
         }
+    }
+
+    private void softDeleteReplyTree(TopicReply reply) {
+        reply.setDeleted(true);
+        replyRepository.save(reply);
+
+        List<TopicReply> children = replyRepository.findByParentId(reply.getId());
+        children.forEach(this::softDeleteReplyTree);
     }
 }

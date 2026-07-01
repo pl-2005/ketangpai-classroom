@@ -20,6 +20,10 @@ export const aiGradingApi = {
     return request.post<AiGradingResult>(`/api/submissions/${submissionId}/ai-grade`);
   },
 
+  triggerAiGradingAsync: (submissionId: number) => {
+    return request.post<GradingBatchTask>(`/api/submissions/${submissionId}/ai-grade-async`);
+  },
+
   batchAiGrading: (assignmentId: number) => {
     return request.post<GradingBatchTask>(`/api/assignments/${assignmentId}/ai-grade-batch`);
   },

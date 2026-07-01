@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card, Button, Descriptions, Tag, Input, InputNumber, Table,
@@ -10,7 +10,7 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { submissionsApi, aiGradingApi, type Submission, type AiGradingResult, type DimensionScore, materialsApi } from '../../api';
+import { submissionsApi, aiGradingApi, type Submission, type AiGradingResult, type DimensionScore, type GradingBatchTask, materialsApi } from '../../api';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -34,9 +34,11 @@ export default function Grading() {
   const [comment, setComment] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [aiTaskStatus, setAiTaskStatus] = useState<GradingBatchTask['status'] | null>(null);
+  const aiPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchSubmission = async () => {
-    setLoading(true);
+  const fetchSubmission = async (showLoading = true, showError = true) => {
+    if (showLoading) setLoading(true);
     try {
       const data: any = await submissionsApi.getSubmissionDetail(numSubmissionId);
       const sub = data?.submission || data;
@@ -48,18 +50,31 @@ export default function Grading() {
       setComment(sub.teacherComment || '');
       // AI grading result from response
       if (data?.aiGradingResult) {
-        setAiResult(parseAiResult(data.aiGradingResult));
+        const parsed = parseAiResult(data.aiGradingResult);
+        setAiResult(parsed);
+        return parsed;
       }
+      setAiResult(null);
+      return null;
     } catch {
-      message.error('获取提交信息失败');
+      if (showError) message.error('获取提交信息失败');
+      return null;
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchSubmission();
   }, [submissionId]);
+
+  useEffect(() => {
+    return () => {
+      if (aiPollingRef.current) {
+        clearInterval(aiPollingRef.current);
+      }
+    };
+  }, []);
 
   /** Parse AI result — normalize detailJson/dimensions */
   const parseAiResult = (raw: any): AiGradingResult => {
@@ -73,16 +88,69 @@ export default function Grading() {
     };
   };
 
+  const stopAiPolling = () => {
+    if (aiPollingRef.current) {
+      clearInterval(aiPollingRef.current);
+      aiPollingRef.current = null;
+    }
+  };
+
+  const isTerminalTaskStatus = (status: GradingBatchTask['status']) =>
+    ['COMPLETED', 'PARTIALLY_FAILED', 'FAILED'].includes(status);
+
+  const startAiPolling = (taskId: number) => {
+    stopAiPolling();
+
+    const poll = async () => {
+      try {
+        const task = await aiGradingApi.getBatchTaskDetail(taskId) as unknown as GradingBatchTask;
+        setAiTaskStatus(task.status);
+        if (!isTerminalTaskStatus(task.status)) return;
+
+        stopAiPolling();
+        const latestResult = await fetchSubmission(false, false);
+        setAiLoading(false);
+
+        if (task.status === 'FAILED') {
+          message.error(task.errorMessage || 'AI 批阅失败');
+          return;
+        }
+
+        if (latestResult?.comment === 'AI 批阅失败') {
+          message.error(latestResult.suggestions || 'AI 批阅失败');
+          return;
+        }
+
+        message.success('AI 批阅完成');
+      } catch (error: any) {
+        stopAiPolling();
+        setAiLoading(false);
+        setAiTaskStatus(null);
+        message.error(error?.message || '获取 AI 批阅进度失败');
+      }
+    };
+
+    aiPollingRef.current = setInterval(poll, 2000);
+    poll();
+  };
+
   const handleTriggerAi = async () => {
+    stopAiPolling();
     setAiLoading(true);
+    setAiTaskStatus('PENDING');
     try {
-      const result: any = await aiGradingApi.triggerAiGrading(numSubmissionId);
-      setAiResult(parseAiResult(result));
-      message.success('AI 批阅完成');
-    } catch {
-      message.error('AI 批阅失败');
-    } finally {
+      const task = await aiGradingApi.triggerAiGradingAsync(numSubmissionId) as unknown as GradingBatchTask;
+      if (!task?.id) {
+        throw new Error('未获取到 AI 批阅任务');
+      }
+      setAiTaskStatus(task.status);
+      message.info('AI 预批阅已启动');
+      startAiPolling(task.id);
+    } catch (error: any) {
+      stopAiPolling();
       setAiLoading(false);
+      setAiTaskStatus(null);
+      message.error(error?.message || '启动 AI 批阅失败');
     }
   };
 
@@ -248,6 +316,11 @@ export default function Grading() {
                   {dayjs(aiResult.gradedAt).format('MM-DD HH:mm')}
                 </Text>
               )}
+              {aiLoading && (
+                <Tag color="processing">
+                  {aiTaskStatus === 'PENDING' ? '等待中' : '批阅中'}
+                </Tag>
+              )}
             </Space>
           }
           style={{ width: 400 }}
@@ -319,7 +392,7 @@ export default function Grading() {
                   loading={aiLoading}
                   onClick={handleTriggerAi}
                 >
-                  重新 AI 批阅
+                  {aiLoading ? 'AI 批阅中' : '重新 AI 批阅'}
                 </Button>
               </Space>
             </>
@@ -335,7 +408,7 @@ export default function Grading() {
                 loading={aiLoading}
                 onClick={handleTriggerAi}
               >
-                AI 预批阅
+                {aiLoading ? 'AI 批阅中' : 'AI 预批阅'}
               </Button>
             </div>
           )}

@@ -1,19 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, App, Badge } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, theme, App, Badge, Modal, Form, Input } from 'antd';
 import {
   BookOutlined,
   BellOutlined,
-  FileTextOutlined,
-  CommentOutlined,
-  FolderOutlined,
   EditOutlined,
-  RobotOutlined,
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   CameraOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { userApi, notificationsApi } from '../api';
@@ -26,6 +23,18 @@ interface MenuItem {
   icon: React.ReactNode;
   label: string;
   path: string;
+}
+
+interface ProfileFormValues {
+  username: string;
+  realName?: string;
+  email?: string;
+}
+
+interface PasswordFormValues {
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 const menuItems: MenuItem[] = [
@@ -44,6 +53,12 @@ export default function AppLayout() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [profileForm] = Form.useForm<ProfileFormValues>();
+  const [passwordForm] = Form.useForm<PasswordFormValues>();
 
   // 页面加载时获取头像预签名 URL
   useEffect(() => {
@@ -80,13 +95,17 @@ export default function AppLayout() {
     };
   }, []);
 
+  const visibleMenuItems = user?.role === 'TEACHER'
+    ? menuItems
+    : menuItems.filter((item) => item.key !== 'drafts');
+
   // 根据当前路径确定选中菜单
-  const selectedKey = menuItems.find((item) =>
+  const selectedKey = visibleMenuItems.find((item) =>
     location.pathname.startsWith(item.path)
   )?.key || 'courses';
 
   const handleMenuClick = (info: { key: string }) => {
-    const item = menuItems.find((m) => m.key === info.key);
+    const item = visibleMenuItems.find((m) => m.key === info.key);
     if (item) navigate(item.path);
   };
 
@@ -130,11 +149,75 @@ export default function AppLayout() {
     }
   };
 
+  const handleEditProfileClick = () => {
+    profileForm.setFieldsValue({
+      username: user?.username || '',
+      realName: user?.realName || '',
+      email: user?.email || '',
+    });
+    setProfileOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const values = await profileForm.validateFields();
+      setProfileSaving(true);
+      await userApi.updateProfile({
+        realName: values.realName?.trim() || '',
+        email: values.email?.trim() || '',
+      });
+      await refreshUser();
+      setProfileOpen(false);
+      message.success('资料已更新');
+    } catch (error: any) {
+      if (error?.errorFields) return;
+      message.error(error?.message || '资料更新失败');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleChangePasswordClick = () => {
+    passwordForm.resetFields();
+    setPasswordOpen(true);
+  };
+
+  const handleSavePassword = async () => {
+    try {
+      const values = await passwordForm.validateFields();
+      setPasswordSaving(true);
+      await userApi.updatePassword({
+        oldPassword: values.oldPassword,
+        newPassword: values.newPassword,
+      });
+      setPasswordOpen(false);
+      message.success('密码已更新，请重新登录');
+      logout();
+      navigate('/login');
+    } catch (error: any) {
+      if (error?.errorFields) return;
+      message.error(error?.message || '密码修改失败');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const userMenuItems = [
     {
       key: 'role',
       label: `角色：${user?.role === 'TEACHER' ? '教师' : '学生'}`,
       disabled: true,
+    },
+    { type: 'divider' as const },
+    {
+      key: 'profile',
+      label: '编辑资料',
+      icon: <UserOutlined />,
+    },
+    {
+      key: 'password',
+      label: '修改密码',
+      icon: <LockOutlined />,
     },
     {
       key: 'avatar',
@@ -157,6 +240,12 @@ export default function AppLayout() {
         break;
       case 'avatar':
         handleAvatarClick();
+        break;
+      case 'profile':
+        handleEditProfileClick();
+        break;
+      case 'password':
+        handleChangePasswordClick();
         break;
     }
   };
@@ -197,7 +286,7 @@ export default function AppLayout() {
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
-          items={menuItems.map((item) => ({
+          items={visibleMenuItems.map((item) => ({
             key: item.key,
             icon: item.key === 'notifications' && unreadCount > 0
               ? <Badge dot offset={[-2, 4]}>{item.icon}</Badge>
@@ -224,7 +313,7 @@ export default function AppLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
           <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }}>
-            <Space style={{ cursor: 'pointer' }} title="点击更换头像">
+            <Space style={{ cursor: 'pointer' }} title="用户菜单">
               <Avatar
                 src={avatarUrl}
                 icon={!avatarUrl ? <UserOutlined /> : undefined}
@@ -247,6 +336,88 @@ export default function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <Modal
+        title="编辑资料"
+        open={profileOpen}
+        onOk={handleSaveProfile}
+        onCancel={() => setProfileOpen(false)}
+        confirmLoading={profileSaving}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form form={profileForm} layout="vertical">
+          <Form.Item label="用户名" name="username">
+            <Input disabled />
+          </Form.Item>
+          <Form.Item
+            label="姓名"
+            name="realName"
+            rules={[{ max: 50, message: '姓名长度不能超过 50 个字符' }]}
+          >
+            <Input maxLength={50} placeholder="请输入姓名" />
+          </Form.Item>
+          <Form.Item
+            label="邮箱"
+            name="email"
+            rules={[
+              { type: 'email', message: '邮箱格式不正确' },
+              { max: 100, message: '邮箱长度不能超过 100 个字符' },
+            ]}
+          >
+            <Input maxLength={100} placeholder="请输入邮箱" />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title="修改密码"
+        open={passwordOpen}
+        onOk={handleSavePassword}
+        onCancel={() => setPasswordOpen(false)}
+        confirmLoading={passwordSaving}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form form={passwordForm} layout="vertical">
+          <Form.Item
+            label="原密码"
+            name="oldPassword"
+            rules={[{ required: true, message: '请输入原密码' }]}
+          >
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            label="新密码"
+            name="newPassword"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              {
+                pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,32}$/,
+                message: '新密码须为 8-32 个字符，且包含大写字母、小写字母和数字',
+              },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            label="确认新密码"
+            name="confirmPassword"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请再次输入新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('两次输入的新密码不一致'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Layout>
   );
 }

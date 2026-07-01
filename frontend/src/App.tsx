@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import Login from './components/Login/Login';
 import Register from './components/Register/Register';
 import AppLayout from './components/AppLayout';
@@ -12,6 +13,17 @@ import TopicDetail from './pages/TopicDetail/TopicDetail';
 import Drafts from './pages/Drafts/Drafts';
 import AiChat from './pages/AiChat/AiChat';
 import SimilarityAnalysis from './pages/SimilarityAnalysis/SimilarityAnalysis';
+import { useAuth } from './contexts/AuthContext';
+
+function TeacherRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
+  if (user?.role !== 'TEACHER') {
+    return <Navigate to="/courses" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function App() {
   return (
@@ -34,7 +46,7 @@ function App() {
         <Route path="courses/:courseId/assignments/:assignmentId/grade/:submissionId" element={<Grading />} />
         <Route path="courses/:courseId/topics/:topicId" element={<TopicDetail />} />
         <Route path="notifications" element={<NotificationCenter />} />
-        <Route path="drafts" element={<Drafts />} />
+        <Route path="drafts" element={<TeacherRoute><Drafts /></TeacherRoute>} />
         <Route path="courses/:courseId/ai-chat" element={<AiChat />} />
         <Route path="courses/:courseId/assignments/:assignmentId/similarity" element={<SimilarityAnalysis />} />
       </Route>

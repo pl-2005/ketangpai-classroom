@@ -48,6 +48,13 @@ public class AiGradingController {
         return Result.ok(aiGradingService.gradeSubmission(submissionId, userId));
     }
 
+    /** 手动触发单份 AI 批阅（异步执行，返回任务信息供轮询） */
+    @PostMapping("/submissions/{submissionId}/ai-grade-async")
+    public Result<GradingBatchTask> gradeSubmissionAsync(@CurrentUserId Long userId,
+                                                          @PathVariable Long submissionId) {
+        return Result.ok(aiGradingService.gradeSubmissionAsyncTask(submissionId, userId));
+    }
+
     /** 批量触发 AI 批阅（异步执行，返回任务信息供轮询） */
     @PostMapping("/assignments/{assignmentId}/ai-grade-batch")
     public Result<GradingBatchTask> batchGrade(@CurrentUserId Long userId,

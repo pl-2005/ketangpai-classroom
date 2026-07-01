@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Input, Typography, Space, Tag, App,
+  Avatar, Card, Button, Input, Typography, Space, Tag, App,
   List, Popconfirm, Empty, Spin, Divider,
 } from 'antd';
 import {
@@ -10,7 +10,7 @@ import {
   LoadingOutlined, StopOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { aiChatApi, type ChatMessage, type ChatSession, type ChatReference } from '../../api';
+import { aiChatApi, userApi, type ChatMessage, type ChatSession, type ChatReference } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
@@ -43,6 +43,7 @@ export default function AiChat() {
   const [rebuilding, setRebuilding] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [streamingRefs, setStreamingRefs] = useState<ChatReference[]>([]);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
@@ -59,6 +60,23 @@ export default function AiChat() {
   useEffect(() => {
     fetchSessions();
   }, [courseId]);
+
+  // 加载当前用户头像，用于用户消息气泡。
+  useEffect(() => {
+    const fetchUserAvatar = async () => {
+      if (!user?.id) {
+        setUserAvatarUrl(null);
+        return;
+      }
+      try {
+        const data = await userApi.getAvatarUrl() as unknown as { avatarUrl?: string };
+        setUserAvatarUrl(data?.avatarUrl || null);
+      } catch {
+        setUserAvatarUrl(null);
+      }
+    };
+    fetchUserAvatar();
+  }, [user?.id]);
 
   // 切换会话时加载历史
   useEffect(() => {
@@ -435,24 +453,20 @@ export default function AiChat() {
                 }}
               >
                 {/* 头像 */}
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    background: msg.role === 'USER' ? '#1677ff' : '#52c41a',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  {msg.role === 'USER' ? (
-                    <UserOutlined style={{ color: '#fff' }} />
-                  ) : (
-                    <RobotOutlined style={{ color: '#fff' }} />
-                  )}
-                </div>
+                {msg.role === 'USER' ? (
+                  <Avatar
+                    size={36}
+                    src={userAvatarUrl || undefined}
+                    icon={!userAvatarUrl ? <UserOutlined /> : undefined}
+                    style={{ backgroundColor: '#1677ff', color: '#fff', flexShrink: 0 }}
+                  />
+                ) : (
+                  <Avatar
+                    size={36}
+                    icon={<RobotOutlined />}
+                    style={{ backgroundColor: '#52c41a', color: '#fff', flexShrink: 0 }}
+                  />
+                )}
 
                 {/* 消息内容 */}
                 <div style={{ maxWidth: '75%' }}>
@@ -510,15 +524,11 @@ export default function AiChat() {
                 gap: 8,
               }}
             >
-              <div
-                style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: '#52c41a', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}
-              >
-                <RobotOutlined style={{ color: '#fff' }} />
-              </div>
+              <Avatar
+                size={36}
+                icon={<RobotOutlined />}
+                style={{ backgroundColor: '#52c41a', color: '#fff', flexShrink: 0 }}
+              />
               <div style={{ maxWidth: '75%' }}>
                 <div
                   style={{
