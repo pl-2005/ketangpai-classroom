@@ -117,6 +117,7 @@ export function fetchSSE(
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let completed = false; // 标记是否正常完成（收到 done 或 error 事件）
 
       while (true) {
         const { done, value } = await reader.read();
@@ -145,12 +146,18 @@ export function fetchSSE(
               callbacks.onReferences?.((d.references as unknown[]) ?? []);
               break;
             case 'done':
+              completed = true;
               callbacks.onDone(Number(d.messageId ?? 0));
               return; // 正常结束
             case 'error':
+              completed = true;
               throw new Error(String(d.message ?? 'AI 服务不可用'));
           }
         }
+      }
+      // 流意外结束（连接关闭/超时）但未收到 done 或 error 事件
+      if (!completed) {
+        throw new Error('连接已断开，请检查网络或重试');
       }
     })
     .catch((err: Error) => {
@@ -168,10 +175,10 @@ function parseSSEEvent(text: string): { name: string; data: Record<string, unkno
   let dataStr = '';
 
   for (const line of lines) {
-    if (line.startsWith('event: ')) {
-      name = line.slice(7).trim();
-    } else if (line.startsWith('data: ')) {
-      dataStr = line.slice(6);
+    if (line.startsWith('event:')) {
+      name = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      dataStr = line.slice(5).trim();
     }
   }
 
