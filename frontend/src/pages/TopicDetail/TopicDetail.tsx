@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card, Button, Tag, Space, Typography, Input, Switch, Modal, Form,
   App, Spin, Empty, Popconfirm, List, Divider,
@@ -26,6 +26,7 @@ export default function TopicDetail() {
   const numCourseId = Number(courseId);
   const numTopicId = Number(topicId);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [topic, setTopic] = useState<Topic | null>(null);
@@ -200,10 +201,17 @@ export default function TopicDetail() {
       <Button
         type="text"
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate(`/courses/${courseId}`)}
+        onClick={() => {
+          const from = (location.state as any)?.from;
+          if (from === 'notifications') {
+            navigate('/notifications');
+          } else {
+            navigate(`/courses/${courseId}/topics`);
+          }
+        }}
         style={{ marginBottom: 12 }}
       >
-        返回课程
+        返回
       </Button>
 
       {/* Topic Header */}

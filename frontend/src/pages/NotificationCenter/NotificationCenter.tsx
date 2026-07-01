@@ -103,20 +103,18 @@ export default function NotificationCenter() {
   const handleNotificationClick = (notification: Notification) => {
     const { type, courseId, relatedId } = notification;
 
-    // 自动标记为已读
     if (!notification.isRead) {
       handleMarkRead(notification.id);
     }
 
-    // 根据类型跳转
     if (type === 'TOPIC_REPLY' && courseId && relatedId) {
-      navigate(`/courses/${courseId}/topics/${relatedId}`);
+      navigate(`/courses/${courseId}/topics/${relatedId}`, { state: { from: 'notifications' } });
     } else if (['ASSIGNMENT_PUBLISHED', 'ASSIGNMENT_URGED'].includes(type) && courseId && relatedId) {
-      navigate(`/courses/${courseId}/assignments/${relatedId}`);
+      navigate(`/courses/${courseId}/assignments/${relatedId}`, { state: { from: 'notifications' } });
     } else if (['ASSIGNMENT_GRADED', 'ASSIGNMENT_RETURNED'].includes(type) && courseId) {
-      navigate(`/courses/${courseId}`);
+      navigate(`/courses/${courseId}`, { state: { from: 'notifications' } });
     } else if (courseId) {
-      navigate(`/courses/${courseId}`);
+      navigate(`/courses/${courseId}`, { state: { from: 'notifications' } });
     }
   };
 

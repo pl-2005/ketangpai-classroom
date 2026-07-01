@@ -29,6 +29,7 @@ function App() {
         <Route index element={<Navigate to="/courses" replace />} />
         <Route path="courses" element={<CourseList />} />
         <Route path="courses/:courseId" element={<CourseDetail />} />
+        <Route path="courses/:courseId/topics" element={<CourseDetail />} />
         <Route path="courses/:courseId/assignments/:assignmentId" element={<AssignmentDetail />} />
         <Route path="courses/:courseId/assignments/:assignmentId/grade/:submissionId" element={<Grading />} />
         <Route path="courses/:courseId/topics/:topicId" element={<TopicDetail />} />

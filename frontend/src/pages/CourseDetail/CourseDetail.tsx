@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Tabs, Card, Button, Table, Tag, Space, Typography,
   Modal, Form, Input, InputNumber, DatePicker, Switch,
@@ -48,13 +48,14 @@ export default function CourseDetail() {
   const numCourseId = Number(courseId);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { message } = App.useApp();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('assignments');
+  const [activeTab, setActiveTab] = useState(location.pathname.includes('/topics') ? 'topics' : 'assignments');
 
   // Create assignment modal
   const [createOpen, setCreateOpen] = useState(false);
@@ -112,6 +113,12 @@ export default function CourseDetail() {
     setLoading(true);
     Promise.all([fetchCourse(), fetchAssignments(), fetchMembers()]).finally(() => setLoading(false));
   }, [courseId]);
+
+  useEffect(() => {
+    if (location.pathname.includes('/topics') && !location.pathname.includes('/topics/')) {
+      setActiveTab('topics');
+    }
+  }, [location.pathname]);
 
   // ====== 归档操作 ======
   const handleArchiveAction = async (action: 'ARCHIVE' | 'UNARCHIVE' | 'ARCHIVE_FOR_ALL' | 'RESTORE_FOR_ALL' | 'DELETE' | 'LEAVE') => {
@@ -294,10 +301,17 @@ export default function CourseDetail() {
       <Button
         type="text"
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate('/courses')}
+        onClick={() => {
+          const from = (location.state as any)?.from;
+          if (from === 'notifications') {
+            navigate('/notifications');
+          } else {
+            navigate('/courses');
+          }
+        }}
         style={{ marginBottom: 12 }}
       >
-        返回课程列表
+        返回
       </Button>
       <Card style={{ marginBottom: 16 }}>
         <Descriptions title={<Title level={4}>{course.name}</Title>} column={2} size="small">
@@ -529,12 +543,12 @@ export default function CourseDetail() {
                             && a.mySubmissionStatus !== 'DRAFT' ? (
                             <Tag color={
                               a.mySubmissionStatus === 'GRADED' ? 'green' :
-                              a.mySubmissionStatus === 'RETURNED' ? 'red' :
-                              'blue'
+                                a.mySubmissionStatus === 'RETURNED' ? 'red' :
+                                  'blue'
                             }>
                               {a.mySubmissionStatus === 'SUBMITTED' ? '已提交' :
-                               a.mySubmissionStatus === 'GRADED' ? '已批阅' :
-                               a.mySubmissionStatus === 'RETURNED' ? '已退回' : a.mySubmissionStatus}
+                                a.mySubmissionStatus === 'GRADED' ? '已批阅' :
+                                  a.mySubmissionStatus === 'RETURNED' ? '已退回' : a.mySubmissionStatus}
                             </Tag>
                           ) : (
                             <Tag color="default">未提交</Tag>

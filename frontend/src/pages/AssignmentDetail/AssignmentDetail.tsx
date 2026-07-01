@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card, Button, Typography, Space, Descriptions, Tag, Input, Upload,
   App, Spin, Empty, Divider, Table, Modal, Popconfirm,
@@ -26,6 +26,7 @@ export default function AssignmentDetail() {
   const numAssignmentId = Number(assignmentId);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -233,10 +234,17 @@ export default function AssignmentDetail() {
       <Button
         type="text"
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate(`/courses/${courseId}`)}
+        onClick={() => {
+          const from = (location.state as any)?.from;
+          if (from === 'notifications') {
+            navigate('/notifications');
+          } else {
+            navigate(`/courses/${courseId}`);
+          }
+        }}
         style={{ marginBottom: 12 }}
       >
-        返回课程
+        返回
       </Button>
 
       {/* Assignment Header */}

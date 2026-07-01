@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card, Button, Descriptions, Tag, Input, InputNumber, Table,
   App, Spin, Empty, Typography, Space, Divider, Popconfirm,
@@ -24,6 +24,7 @@ export default function Grading() {
   const numAssignmentId = Number(assignmentId);
   const numSubmissionId = Number(submissionId);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [aiResult, setAiResult] = useState<AiGradingResult | null>(null);
@@ -158,10 +159,17 @@ export default function Grading() {
       <Button
         type="text"
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate(`/courses/${courseId}/assignments/${assignmentId}`)}
+        onClick={() => {
+          const from = (location.state as any)?.from;
+          if (from === 'notifications') {
+            navigate('/notifications');
+          } else {
+            navigate(`/courses/${courseId}/assignments/${assignmentId}`);
+          }
+        }}
         style={{ marginBottom: 12 }}
       >
-        返回作业
+        返回
       </Button>
 
       <Title level={4}>批阅提交</Title>
@@ -208,7 +216,7 @@ export default function Grading() {
               {submission.files.map((f) => (
                 <div key={f.id}>
                   <Text>
-                    {f.fileName} 
+                    {f.fileName}
                     {/* ({f.fileSize} bytes) */}
                     <Button
                       type="text" size="small" icon={<DownloadOutlined />}
