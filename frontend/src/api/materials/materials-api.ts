@@ -78,6 +78,10 @@ export const materialsApi = {
     return request.delete(`/api/materials/${materialId}`);
   },
 
+  updateFolder: (folderId: number, data: { name: string }) => {
+    return request.put(`/api/materials/folders/${folderId}`, data);
+  },
+
   deleteFolder: (folderId: number) => {
     return request.delete(`/api/materials/folders/${folderId}`);
   },

@@ -87,6 +87,13 @@ public class MaterialController {
         return Result.ok();
     }
 
+    @PutMapping("/materials/folders/{folderId}")
+    public Result<MaterialFolder> renameFolder(@CurrentUserId Long userId,
+                                               @PathVariable Long folderId,
+                                               @RequestBody Map<String, String> body) {
+        return Result.ok(materialService.renameFolder(folderId, userId, body.get("name")));
+    }
+
     @DeleteMapping("/materials/folders/{folderId}")
     public Result<Void> deleteFolder(@CurrentUserId Long userId, @PathVariable Long folderId) {
         materialService.deleteFolder(folderId, userId);

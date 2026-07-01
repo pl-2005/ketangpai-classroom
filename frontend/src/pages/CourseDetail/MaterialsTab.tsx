@@ -294,8 +294,7 @@ export default function MaterialsTab({ courseId, isTeacher }: Props) {
     setSubmitting(true);
     try {
       if (renameTarget.isFolder) {
-        // Folder rename - use same API pattern
-        await materialsApi.updateMaterial(renameTarget.id, { title: values.name as string });
+        await materialsApi.updateFolder(renameTarget.id, { name: values.name as string });
       } else {
         await materialsApi.updateMaterial(renameTarget.id, { title: values.name as string });
       }

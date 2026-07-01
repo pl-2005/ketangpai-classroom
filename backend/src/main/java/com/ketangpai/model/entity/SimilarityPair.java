@@ -37,10 +37,10 @@ public class SimilarityPair {
     @Column(nullable = false)
     private Long reportId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "submission_a_id")
     private Long submissionAId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "submission_b_id")
     private Long submissionBId;
 
     @Column(nullable = false, precision = 5, scale = 4)

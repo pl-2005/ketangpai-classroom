@@ -194,6 +194,15 @@ public class MaterialService extends BaseService {
     }
 
     @Transactional
+    public MaterialFolder renameFolder(Long folderId, Long userId, String newName) {
+        MaterialFolder folder = folderRepository.findById(folderId)
+                .orElseThrow(() -> new BusinessException(404, "文件夹不存在"));
+        checkTeacher(folder.getCourseId(), userId);
+        folder.setName(newName);
+        return folderRepository.save(folder);
+    }
+
+    @Transactional
     public void deleteFolder(Long folderId, Long userId) {
         MaterialFolder folder = folderRepository.findById(folderId)
                 .orElseThrow(() -> new BusinessException(404, "文件夹不存在"));
