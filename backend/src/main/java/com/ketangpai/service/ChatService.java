@@ -379,10 +379,14 @@ public class ChatService extends BaseService {
         return null;
     }
 
-    /** 检查用户是否参与了指定会话 */
+    /** 检查用户是否参与了指定会话（新会话无消息时允许访问） */
     private boolean isSessionParticipant(String sessionId, Long userId) {
         Page<ChatMessage> page = chatMessageRepository
                 .findBySessionIdOrderByCreateTimeDesc(sessionId, Pageable.ofSize(1));
+        // 新创建的会话还没有消息，视为可访问（调用方已校验课程成员身份）
+        if (page.getContent().isEmpty()) {
+            return true;
+        }
         return page.getContent().stream().anyMatch(msg -> msg.getUserId().equals(userId));
     }
 
